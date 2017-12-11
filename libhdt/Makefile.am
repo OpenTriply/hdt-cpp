@@ -23,6 +23,8 @@ include_HEADERS = \
 lib_LTLIBRARIES = libhdt.la
 libhdt_la_SOURCES = \
 src/bitsequence/BitSequence375.cpp \
+src/bitsequence/BitSequenceRoaring.cpp \
+src/bitsequence/roaring.c\
 src/dictionary/FourSectionDictionary.cpp \
 src/dictionary/KyotoDictionary.cpp \
 src/dictionary/LiteralDictionary.cpp \
@@ -88,6 +90,9 @@ src/util/getopt.c \
 third/gzstream.cpp \
 src/bitsequence/BitSeq.h\
 src/bitsequence/BitSequence375.h\
+src/bitsequence/BitSequenceRoaring.h\
+src/bitsequence/roaring.hh\
+src/bitsequence/roaring.h\
 src/huffman/huff.h\
 src/huffman/Huffman.h\
 src/libdcs/CSD_Cache2.h\
