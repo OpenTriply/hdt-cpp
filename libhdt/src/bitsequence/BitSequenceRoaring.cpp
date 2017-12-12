@@ -20,7 +20,9 @@ namespace hdt
 BitSequenceRoaring::BitSequenceRoaring() : numbits(0)
 {
 }
-
+BitSequenceRoaring::BitSequenceRoaring(int capacity) : numbits(0)
+{
+}
 BitSequenceRoaring::~BitSequenceRoaring()
 {
 }
@@ -133,7 +135,6 @@ size_t BitSequenceRoaring::load(const unsigned char *ptr, const unsigned char*ma
   size_t upper = ceil(totalBits/sizeof(char));
   char cur_byte;
   uint64_t cur_bit = 0;
-
   for(int i=0; i<upper; i++) {
     cur_byte = ptr[i];
     for(int j=0; j< sizeof(char); j++) {
@@ -151,8 +152,57 @@ size_t BitSequenceRoaring::load(const unsigned char *ptr, const unsigned char*ma
 	return count;
 }
 
-BitSequenceRoaring * BitSequenceRoaring::load(istream & f)
+BitSequenceRoaring * BitSequenceRoaring::load(istream & in)
 {
+  CRC8 crch;
+	CRC32 crcd;
+	unsigned char arr[9];
+
+	// Read Type
+	unsigned char type;
+	in.read((char*)&type, sizeof(type));
+	if(type!=TYPE_BITMAP_PLAIN) {    // throw exception
+        throw std::runtime_error("Trying to read a BitmapPlain but the type does not match");
+	}
+	crch.update(&type, sizeof(type));
+
+	BitSequenceRoaring * ret = new BitSequenceRoaring();
+
+	// Load number of total bits
+	uint64_t totalBits = csd::VByte::decode(in);
+	if(sizeof(size_t)==4 && totalBits>0xFFFFFFFF) {
+		throw std::runtime_error("This File is too big to be processed using 32Bit version. Please compile with 64bit support");
+	}
+	ret->numbits = (size_t) totalBits;
+
+
+	size_t len = csd::VByte::encode(arr, ret->numbits);
+	crch.update(arr,len);
+	crc8_t filecrch = crc8_read(in);
+	if(filecrch!=crch.getValue()) {
+		throw std::runtime_error("Wrong checksum in BitSequenceRoaring Header.");
+	}
+
+	// Calculate numWords and create array
+	size_t numwords = ret->numWords(ret->numbits);
+  size_t *array = new size_t[numwords];
+	//ret->data.resize(ret->numwords);
+  //ret->array = &ret->data[0];
+
+	// Read array from file, byte-aligned.
+	size_t bytes = ret->numBytes(ret->numbits);
+	in.read((char*)&array, bytes);
+	if(in.gcount()!=bytes) {
+		throw std::runtime_error("BitSequenceRoaring error reading array of bits.");
+	}
+
+	crcd.update((unsigned char*)&array[0], bytes);
+	crc32_t filecrcd = crc32_read(in);
+	if(filecrcd!=crcd.getValue()) {
+		throw std::runtime_error("Wrong checksum in BitSequenceRoaring Data.");
+	}
+  delete[] array;
+	return ret;
 }
 
 void BitSequenceRoaring::set(const size_t i, bool val)

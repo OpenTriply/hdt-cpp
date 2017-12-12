@@ -35,7 +35,6 @@
 #include <Triples.hpp>
 #include <HDTSpecification.hpp>
 
-#include "../bitsequence/BitSequence375.h"
 #include "../bitsequence/BitSequenceRoaring.h"
 #include "../sequence/LogSequence2.hpp"
 #include "../sequence/AdjacencyList.hpp"
@@ -53,7 +52,7 @@ private:
 	ControlInformation controlInformation;
 	HDTSpecification spec;
 	IntSequence *arrayY, *arrayZ, *arrayIndex;
-	BitSequence375 *bitmapY, *bitmapZ, *bitmapIndex;
+	BitSequenceRoaring *bitmapY, *bitmapZ, *bitmapIndex;
 	BitSequenceRoaring *rseqY, *rseqZ;
 	IntSequence *predicateCount;
     PredicateIndex *predicateIndex;

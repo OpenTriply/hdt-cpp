@@ -15,6 +15,7 @@ class BitSequenceRoaring : public BitSeq
 
 private:
   const static uint8_t TYPE_BITMAP_PLAIN = 1;
+  const static unsigned char WORDSIZE = 8*sizeof(size_t);
   Roaring sequence;
   size_t numbits;
 
@@ -22,8 +23,13 @@ private:
 		return bits==0 ? 1 : ((bits-1)>>3) + 1;
 	}
 
+  inline size_t numWords(size_t bits) const {
+		return bits==0 ? 1 : ((bits-1)/WORDSIZE) + 1;
+	}
+
 public:
   BitSequenceRoaring();
+  BitSequenceRoaring(int capacity);
   ~BitSequenceRoaring();
 
 	size_t rank0(const size_t i) const;

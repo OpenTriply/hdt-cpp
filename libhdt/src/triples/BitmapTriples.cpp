@@ -120,8 +120,8 @@ void BitmapTriples::load(ModifiableTriples &triples, ProgressListener *listener)
 
 	IteratorTripleID *it = triples.searchAll();
 
-	bitmapY = new BitSequence375(triples.getNumberOfElements()/2);
-	bitmapZ = new BitSequence375(triples.getNumberOfElements());
+	bitmapY = new BitSequenceRoaring();
+	bitmapZ = new BitSequenceRoaring();
 	rseqY = new BitSequenceRoaring();
 	rseqZ = new BitSequenceRoaring();
 
@@ -371,7 +371,7 @@ void BitmapTriples::generateIndexMemory(ProgressListener *listener) {
 
 	iListener.setRange(20, 25);
 	// Calculate bitmap that separates each object sublist.
-	bitmapIndex = new BitSequence375(arrayZ->getNumberOfElements());
+	bitmapIndex = new BitSequenceRoaring(arrayZ->getNumberOfElements());
     size_t tmpCount=0;
     for(size_t i=0;i<objectCount->getNumberOfElements();i++) {
 		tmpCount += objectCount->get(i);
@@ -588,7 +588,7 @@ void BitmapTriples::generateIndexFast(ProgressListener *listener) {
 	if(bitmapIndex!=NULL) {
 		delete bitmapIndex;
 	}
-	bitmapIndex = new BitSequence375(arrayZ->getNumberOfElements());
+	bitmapIndex = new BitSequenceRoaring(arrayZ->getNumberOfElements());
 
     cerr << " Serialize object lists..." << endl;
 	iListener.setRange(40, 80);
@@ -760,14 +760,14 @@ void BitmapTriples::load(std::istream &input, ControlInformation &controlInforma
 
 	iListener.setRange(0,5);
 	iListener.notifyProgress(0, "BitmapTriples loading Bitmap Y");
-	bitmapY = BitSequence375::load(input);
+	bitmapY = BitSequenceRoaring::load(input);
 	if(bitmapY==NULL){
 		throw std::runtime_error("Could not read bitmapY.");
 	}
 
 	iListener.setRange(5,10);
 	iListener.notifyProgress(0, "BitmapTriples loading Bitmap Z");
-	bitmapZ = BitSequence375::load(input);
+	bitmapZ = BitSequenceRoaring::load(input);
 	if(bitmapZ==NULL){
 		throw std::runtime_error("Could not read bitmapZ.");
 	}
@@ -799,8 +799,8 @@ size_t BitmapTriples::load(unsigned char *ptr, unsigned char *ptrMax, ProgressLi
 
     order = (TripleComponentOrder) controlInformation.getUint("order");
 
-    BitSequence375 *bitY = new BitSequence375();
-    BitSequence375 *bitZ = new BitSequence375();
+    BitSequenceRoaring *bitY = new BitSequenceRoaring();
+    BitSequenceRoaring *bitZ = new BitSequenceRoaring();
 
     IntermediateListener iListener(listener);
 
@@ -894,7 +894,7 @@ void BitmapTriples::loadIndex(std::istream &input, ControlInformation &controlIn
 	}
 	iListener.setRange(10,20);
 	iListener.notifyProgress(0, "BitmapTriples loading Bitmap Index");
-	bitmapIndex = BitSequence375::load(input);
+	bitmapIndex = BitSequenceRoaring::load(input);
 
 	// LOAD SEQ
 	if(arrayIndex!=NULL) {
@@ -951,7 +951,7 @@ size_t BitmapTriples::loadIndex(unsigned char *ptr, unsigned char *ptrMax, Progr
     if(bitmapIndex!=NULL) {
         delete bitmapIndex;
     }
-    BitSequence375 *bitIndex = new BitSequence375();
+    BitSequenceRoaring *bitIndex = new BitSequenceRoaring();
     count += bitIndex->load(&ptr[count], ptrMax, &iListener);
     bitmapIndex = bitIndex;
 
