@@ -40,7 +40,7 @@ size_t PredicateIndexArray::getNumPredicates() {
 
 size_t PredicateIndexArray::load(unsigned char *ptr, unsigned char *ptrMax, ProgressListener *listener) {
     size_t count = 0;
-    bitmap = new BitSequence375();
+    bitmap = new BitSequenceRoaring();
     count += bitmap->load(&ptr[count], ptrMax, listener);
 
     array = new LogSequence2();
@@ -99,7 +99,7 @@ void PredicateIndexArray::generate(ProgressListener *listener) {
 #endif
 
     // Convert predicate count to bitmap
-    bitmap = new BitSequence375(triples->arrayY->getNumberOfElements());
+    bitmap = new BitSequenceRoaring(triples->arrayY->getNumberOfElements());
     size_t tempCountPred=0;
     iListener.setRange(20,25);
     for(size_t i=0;i<predCount->getNumberOfElements();i++) {

@@ -7,7 +7,7 @@
 #include <HDTListener.hpp>
 
 
-#include "../bitsequence/BitSequence375.h"
+#include "../bitsequence/BitSequenceRoaring.h"
 #include "../sequence/LogSequence2.hpp"
 //#include "../sequence/WaveletSequence.hpp"
 
@@ -54,7 +54,7 @@ public:
     size_t getNumPredicates() {
 	return 0;
     }
-	
+
 
     size_t getNumAppearances(size_t predicate) {
          //return wavelet->rank(predicate, wavelet->getNumberOfElements());
@@ -87,7 +87,7 @@ public:
 class PredicateIndexArray : public PredicateIndex {
     IntSequence *array;
     //LogSequence2 *predCount;
-    BitSequence375 *bitmap;
+    BitSequenceRoaring *bitmap;
     size_t currpred,currpos;
     //size_t numPredicates;
     BitmapTriples *bitmapTriples;
@@ -129,7 +129,7 @@ public:
     }
 
     void load(std::istream &input, ProgressListener *listener = NULL) {
-        bitmap = BitSequence375::load(input);
+        bitmap = BitSequenceRoaring::load(input);
 
         array = IntSequence::getArray(input);
         array->load(input);
