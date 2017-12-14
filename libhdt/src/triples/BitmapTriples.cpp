@@ -1,4 +1,4 @@
- /*
+/*
  * File: BitmapTriples.cpp
  * Last modified: $Date$
  * Revision: $Revision$
@@ -120,10 +120,8 @@ void BitmapTriples::load(ModifiableTriples &triples, ProgressListener *listener)
 
 	IteratorTripleID *it = triples.searchAll();
 
-	bitmapY = new BitSequenceRoaring();
-	bitmapZ = new BitSequenceRoaring();
-	rseqY = new BitSequenceRoaring();
-	rseqZ = new BitSequenceRoaring();
+	bitmapY = new BitSequenceRoaring(triples.getNumberOfElements()/2);
+	bitmapZ = new BitSequenceRoaring(triples.getNumberOfElements());
 
 	LogSequence2 *vectorY = new LogSequence2(bits(triples.getNumberOfElements()));
 	LogSequence2 *vectorZ = new LogSequence2(bits(triples.getNumberOfElements()),triples.getNumberOfElements());
@@ -154,30 +152,24 @@ void BitmapTriples::load(ModifiableTriples &triples, ProgressListener *listener)
                 throw std::runtime_error("Error: The subjects must be correlative.");
             }
 			bitmapY->append(true);
-			rseqY->append(true);
-
 			vectorY->push_back(y);
 
 			bitmapZ->append(true);
-			rseqZ->append(true);
 			vectorZ->push_back(z);
 		} else if(y!=lastY) {
             if(y<lastY) {
                 throw std::runtime_error("Error: The predicates must be in increasing order.");
             }
             bitmapY->append(false);
-						rseqY->append(false);
 			vectorY->push_back(y);
 
 			bitmapZ->append(true);
-			rseqZ->append(true);
 			vectorZ->push_back(z);
 		} else {
             if(z<=lastZ) {
                 throw std::runtime_error("Error, The objects must be in increasing order.");
             }
             bitmapZ->append(false);
-						rseqZ->append(false);
 			vectorZ->push_back(z);
 		}
 
@@ -190,9 +182,7 @@ void BitmapTriples::load(ModifiableTriples &triples, ProgressListener *listener)
 	}
 
 	bitmapY->append(true);
-	rseqY->append(true);
 	bitmapZ->append(true);
-	rseqZ->append(true);
 
 	delete it;
 
@@ -204,78 +194,6 @@ void BitmapTriples::load(ModifiableTriples &triples, ProgressListener *listener)
 	delete arrayZ;
 	arrayZ = vectorZ;
 
-	cout << "Output for test purposes" << endl << "==Default==" << endl;
-	// cout << "Default bitmapY: |";
-	// for(int i=0; i < bitmapY->getNumBits(); i++) {
-	// 	cout << bitmapY->access(i) << "|";
-	// }
-	// cout << endl;
-	// cout << "Default bitmapZ: |";
-	// for(int i=0; i < bitmapZ->getNumBits(); i++) {
-	// 	cout << bitmapZ->access(i) << "|";
-	// }
-	cout << endl;
-	cout << "Default bitmapY numbits: " << bitmapY->getNumBits() << endl;
-	cout << "Default bitmapY rank1(numbits): " << bitmapY->rank1(bitmapY->getNumBits()) << endl;
-	cout << "Default bitmapY rank0(numbits): " << bitmapY->rank0(bitmapY->getNumBits()) << endl;
-	cout << "Default bitmapY select1(numbits): " << bitmapY->select1(bitmapY->rank1(bitmapY->getNumBits())) << endl;
-	cout << "Default bitmapY countOnes(): " << bitmapY->countOnes() << endl;
-	cout << "Default bitmapY countZeros(): " << bitmapY->countZeros() << endl;
-	cout << "Default bitmapY selectNext1(numbits/2): " << bitmapY->selectNext1(bitmapY->getNumBits()/2) << endl;
-	cout << "Default bitmapY bytes: " << bitmapY->getSizeBytes() << endl;
-
-	cout << endl;
-
-	cout << "Default bitmapZ numbits: " << bitmapZ->getNumBits() << endl;
-	cout << "Default bitmapZ rank1(numbits): " << bitmapZ->rank1(bitmapZ->getNumBits()) << endl;
-	cout << "Default bitmapZ rank0(numbits): " << bitmapZ->rank0(bitmapZ->getNumBits()) << endl;
-	cout << "Default bitmapZ select1(numbits): " << bitmapZ->select1(bitmapZ->rank1(bitmapZ->getNumBits())) << endl;
-	cout << "Default bitmapZ countOnes(): " << bitmapZ->countOnes() << endl;
-	cout << "Default bitmapZ countZeros(): " << bitmapZ->countZeros() << endl;
-	cout << "Default bitmapZ selectNext1(numbits/2): " << bitmapZ->selectNext1(bitmapZ->getNumBits()/2) << endl;
-	cout << "Default bitmapZ bytes: " << bitmapZ->getSizeBytes() << endl;
-
-
-	cout << "\n==Roaring==" << endl;
-	// cout << "Roaring rseqY: |";
-	// for(int i=0; i < rseqY->getNumBits(); i++) {
-	// 	cout << rseqY->access(i) << "|";
-	// }
-	// cout << endl;
-	// cout << "Roaring rseqZ: |";
-	// for(int i=0; i < rseqZ->getNumBits(); i++) {
-	// 	cout << rseqZ->access(i) << "|";
-	// }
-	cout << endl;
-	cout << "Roaring rseqY bytes: " << rseqY->getSizeBytes();
-	rseqY->optimize();
-	cout << " and bytes after optimize: " << rseqY->getSizeBytes() << endl;
-	cout << "Roaring rseqY numbits: " << rseqY->getNumBits() << endl;
-	cout << "Roaring rseqY rank1(numbits): " << rseqY->rank1(rseqY->getNumBits()) << endl;
-	cout << "Roaring rseqY rank0(numbits): " << rseqY->rank0(rseqY->getNumBits()) << endl;
-	cout << "Roaring rseqY select1(numbits): " << rseqY->select1(rseqY->rank1(rseqY->getNumBits())) << endl;
-	cout << "Roaring rseqY countOnes: " << rseqY->countOnes() << endl;
-	cout << "Roaring rseqY countZeros: " << rseqY->countZeros() << endl;
-	cout << "Default rseqY selectNext1(numbits/2): " << rseqY->selectNext1(rseqY->getNumBits()/2) << endl;
-	cout << "Roaring rseqY bytes: " << rseqY->getSizeBytes();
-	rseqY->optimize();
-	cout << " and bytes after optimize: " << rseqY->getSizeBytes() << endl;
-
-	cout << endl;
-
-	cout << "Roaring rseqZ bytes: " << rseqZ->getSizeBytes();
-	rseqZ->optimize();
-	cout << " and bytes after optimize: " << rseqZ->getSizeBytes() << endl;
-	cout << "Roaring rseqZ numbits: " << rseqZ->getNumBits() << endl;
-	cout << "Roaring rseqZ rank1(numbits): " << rseqZ->rank1(rseqZ->getNumBits()) << endl;
-	cout << "Roaring rseqZ rank0(numbits): " << rseqZ->rank0(rseqZ->getNumBits()) << endl;
-	cout << "Roaring rseqZ select1(numbits): " << rseqZ->select1(rseqZ->rank1(rseqZ->getNumBits())) << endl;
-	cout << "Roaring rseqZ countOnes: " << rseqZ->countOnes() << endl;
-	cout << "Roaring rseqZ countZeros: " << rseqZ->countZeros() << endl;
-	cout << "Default rseqZ selectNext1(numbits/2): " << rseqZ->selectNext1(rseqZ->getNumBits()/2) << endl;
-	cout << "Roaring rseqZ bytes: " << rseqZ->getSizeBytes();
-	rseqZ->optimize();
-	cout << " and bytes after optimize: " << rseqZ->getSizeBytes() << endl;
 #if 0
 	AdjacencyList adjY(arrayY, bitmapY);
 	AdjacencyList adjZ(arrayZ, bitmapZ);

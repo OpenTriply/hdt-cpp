@@ -53,7 +53,6 @@ private:
 	HDTSpecification spec;
 	IntSequence *arrayY, *arrayZ, *arrayIndex;
 	BitSequenceRoaring *bitmapY, *bitmapZ, *bitmapIndex;
-	BitSequenceRoaring *rseqY, *rseqZ;
 	IntSequence *predicateCount;
     PredicateIndex *predicateIndex;
 
