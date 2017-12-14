@@ -1,11 +1,9 @@
 
-#include <cassert>
 #include <stdexcept>
 #include <cmath>
-#include <string.h>
+#include <cstring>
 
 #include "BitSequenceRoaring.h"
-#include "roaring.hh"
 
 #include "../util/bitutil.h"
 #include "../libdcs/VByte.h"
@@ -50,7 +48,7 @@ namespace hdt
 
     size_t BitSequenceRoaring::rank1(const size_t i) const
     {
-        return sequence.rank(i);
+        return sequence.rank((uint32_t) i);
     }
 
     size_t BitSequenceRoaring::select1(size_t x) const
@@ -60,7 +58,7 @@ namespace hdt
             return numbits;
         }
         else if(x == 0) {
-            return -1;
+            return (size_t) -1;
         }
         uint32_t element;
         sequence.select((uint32_t) x-1, &element);
@@ -125,7 +123,7 @@ namespace hdt
         len = numBytes(numbits);
         array = new unsigned char[len]();
         sequence.iterate(hdt::roaring_to_bit, array);
-        crcd.writeData(out, (unsigned char*)&array[0], len);
+        crcd.writeData(out, &array[0], len);
 
         crcd.writeCRC(out);
         delete[] array;
@@ -141,10 +139,10 @@ namespace hdt
         if(ptr[count++]!=TYPE_BITMAP_PLAIN) {
             throw std::runtime_error("Trying to read a BitSequenceRoaring but the type does not match");
         }
+
         // Read numbits
         uint64_t totalBits;
         count += csd::VByte::decode(&ptr[count], maxPtr, &totalBits);
-
         if(sizeof(size_t)==4 && totalBits>0xFFFFFFFF) {
             throw std::runtime_error("This File is too big to be processed using 32Bit version. Please compile with 64bit support");
         }
@@ -164,16 +162,16 @@ namespace hdt
             throw std::runtime_error("BitSequenceRoaring tries to read beyond the end of the file");
         }
 
-        // Store Bitmap
-        size_t upper = ceil(totalBits/sizeof(char));
-        char cur_byte;
-        uint64_t cur_bit = 0;
-        for(int i=0; i<upper; i++) {
-            cur_byte = ptr[i];
-            for(int j=0; j< sizeof(char); j++) {
-                cur_bit = ((cur_byte >> j)  & 0x01);
-                if(cur_bit) {
-                    sequence.add(cur_byte*sizeof(char) + j);
+        // Store to Roaring Bitmap
+        unsigned char cur_byte;
+
+        unsigned char cur_bit = 0;
+        for(int i=0; i<sizeBytes; i++) {
+            cur_byte = ptr[count + i];
+            for (int j = 0; j < 8; j++) {
+                cur_bit = ((cur_byte >> j) & 0x01);
+                if (cur_bit == 1) {
+                    sequence.add(i * 8 + j);
                 }
             }
         }
@@ -181,7 +179,6 @@ namespace hdt
 
         CHECKPTR(&ptr[count], maxPtr, 4);
         count += 4; // CRC of data
-        cout << endl << "IN LOAD WITH POINTERS!" << endl;
         return count;
     }
 
@@ -219,13 +216,11 @@ namespace hdt
         // Calculate numWords and create array
         size_t numwords = ret->numWords(ret->numbits);
         size_t *array = new size_t[numwords];
-        //ret->data.resize(ret->numwords);
-        //ret->array = &ret->data[0];
 
         // Read array from file, byte-aligned.
         size_t bytes = ret->numBytes(ret->numbits);
         in.read((char*)&array, bytes);
-        if(in.gcount()!=bytes) {
+        if(in.gcount()!= bytes) {
             throw std::runtime_error("BitSequenceRoaring error reading array of bits.");
         }
 
@@ -235,19 +230,20 @@ namespace hdt
             throw std::runtime_error("Wrong checksum in BitSequenceRoaring Data.");
         }
         delete[] array;
-        cout << endl << "IN LOAD WITH STREAM!" << endl;
         return ret;
     }
 
     void BitSequenceRoaring::set(const size_t i, bool val)
     {
         if(val) {
-            sequence.add(i);
+            sequence.add((uint32_t) i);
         }
         else {
-            sequence.remove(i);
+            sequence.remove((uint32_t) i);
         }
-        numbits = i>=numbits ? i+1 : numbits;
+        if (i >= numbits) {
+            numbits = i + 1;
+        }
     }
 
     void BitSequenceRoaring::append(bool bit)

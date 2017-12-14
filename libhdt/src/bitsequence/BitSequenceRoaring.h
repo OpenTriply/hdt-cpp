@@ -1,11 +1,12 @@
 #ifndef _STATIC_BITSEQUENCE_ROARING_H
 #define _STATIC_BITSEQUENCE_ROARING_H
 
-#include <stdint.h>
+#include <cstdint>
 #include <iostream>
 
 #include "BitSeq.h"
 #include "roaring.hh"
+#include "../../include/HDTListener.hpp"
 
 namespace hdt
 {
@@ -32,13 +33,13 @@ namespace hdt
         BitSequenceRoaring(int capacity);
         ~BitSequenceRoaring();
 
-        size_t rank0(const size_t i) const;
+        size_t rank0(size_t i) const;
         size_t select0(size_t x) const;
-        size_t rank1(const size_t i) const;
+        size_t rank1(size_t i) const;
         size_t select1(size_t x) const;
-        size_t selectNext1(const size_t start) const;
-        size_t selectPrev1(const size_t start) const;
-        bool access(const size_t i) const;
+        size_t selectNext1(size_t start) const;
+        size_t selectPrev1(size_t start) const;
+        bool access(size_t i) const;
         size_t getNumBits() const;
         size_t countOnes() const;
         size_t countZeros() const;
@@ -48,7 +49,7 @@ namespace hdt
         static BitSequenceRoaring * load(istream & f);
 
         // Additional functions:
-        void set(const size_t i, bool val);
+        void set(size_t i, bool val);
         void append(bool bit);
         void optimize();
     };
