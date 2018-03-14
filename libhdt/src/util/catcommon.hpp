@@ -20,10 +20,7 @@ public:
     CatCommon(IteratorUCharString *it1, IteratorUCharString *it2);
     ~CatCommon();
 
-    //bool pairComparator(const pair<size_t,string>& p1, const pair<size_t,string>& p2);
     void helpNext();
-
-
 };
 
 }
