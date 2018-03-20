@@ -1,8 +1,8 @@
 #ifndef CATITERATOR_HPP_
 #define CATITERATOR_HPP_
 
-#define <Iterator.hpp>
-#define <vector>
+#include <Iterator.hpp>
+#include <vector>
 #include "catcommon.hpp"
 
 namespace hdt {
@@ -14,7 +14,7 @@ private:
 public:
     CatIterator(CatCommon *it1, CatCommon *it2);
 
-    ~CatCommon();
+    ~CatIterator();
 
     bool hasNext();
 

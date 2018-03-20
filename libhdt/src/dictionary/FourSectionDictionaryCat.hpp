@@ -7,6 +7,7 @@
 #include "../util/catmapping.hpp"
 #include "../util/catmappingBack.hpp"
 #include "../util/catcommon.hpp"
+#include "../util/catiterator.hpp"
 
 namespace hdt {
 
@@ -27,7 +28,7 @@ public:
     ~FourSectionDictionaryCat();
     void cat(Dictionary *dict1, Dictionary *dict2);
     csd::CSD *catSection(size_t numentries, DictionarySection type, csd::CSD *dict1_Section, csd::CSD *dict2_Section,
-                         CatCommon *it1, CatCommon *it2, CatMapping *mappingHdt1, CatMapping *mappingHdt2);
+                         CatIterator *it1, CatIterator *it2, CatMapping *mappingHdt1, CatMapping *mappingHdt2);
 
 };
 

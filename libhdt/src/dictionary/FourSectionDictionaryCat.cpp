@@ -32,7 +32,7 @@ void FourSectionDictionaryCat::cat(Dictionary *dict1, Dictionary *dict2) {
 }
 
 csd::CSD *FourSectionDictionaryCat::catSection(size_t numentries, DictionarySection type, csd::CSD *dict1_Section,
-                                               csd::CSD *dict2_Section, CatCommon *it1common, CatCommon *it2common,
+                                               csd::CSD *dict2_Section, CatIterator *it1common, CatIterator *it2common,
                                                CatMapping *mappingHdt1, CatMapping *mappingHdt2) {
 
     csd::CSD *section = new csd::CSD_PFC();
@@ -50,10 +50,10 @@ csd::CSD *FourSectionDictionaryCat::catSection(size_t numentries, DictionarySect
             vector<pair<size_t, unsigned char *>> list;
 
             if(it1common->hasNext()) {
-                //skipSection1 = it1common->next();
+                skipSection1 = it1common->next();
             }
             if(it2common->hasNext()) {
-                //skipSection2 = it2common->next();
+                skipSection2 = it2common->next();
             }
 
 

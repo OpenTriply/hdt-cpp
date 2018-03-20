@@ -48,5 +48,4 @@ size_t CatIterator::next() {
     }
     return r;
 }
-
 }
