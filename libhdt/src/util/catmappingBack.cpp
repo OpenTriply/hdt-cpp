@@ -8,8 +8,8 @@ namespace hdt {
     CatMappingBack::~CatMappingBack() {}
 
     void CatMappingBack::init(size_t size) {
-        this->mapping1.resize(size);
-        this->mapping2.resize(size);
+        this->mapping1.resize(size+1);
+        this->mapping2.resize(size+1);
     }
 
     vector<size_t> CatMappingBack::getMapping(size_t index) {
