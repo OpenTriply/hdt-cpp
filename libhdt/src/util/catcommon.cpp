@@ -20,12 +20,23 @@ CatCommon::CatCommon(IteratorUCharString *it1, IteratorUCharString *it2) : it1(i
     }
 
     count1 = count2 = 0;
-    hasNext = false;
+    has_next = false;
 
     helpNext();
 }
 
 CatCommon::~CatCommon() {}
+
+bool CatCommon::hasNext() {
+    return has_next;
+}
+
+pair<size_t,size_t> CatCommon::next() {
+    pair<size_t,size_t> r= make_pair(next_t.first, next_t.second);
+    has_next = false;
+    helpNext();
+    return r;
+}
 
 void CatCommon::helpNext() {
     while (list.size() != 0) {
@@ -36,8 +47,8 @@ void CatCommon::helpNext() {
             string s2 = string(reinterpret_cast<char *>(list[1].second));
 
             if (!s1.compare(s2)) {
-                hasNext = true;
-                next = make_pair(count1, count2);
+                has_next = true;
+                next_t = make_pair(count1, count2);
                 bool remove = false;
                 if (it1->hasNext()) {
                     list[0] = make_pair(1, it1->next());
@@ -76,5 +87,4 @@ void CatCommon::helpNext() {
         }
     }
 }
-
 }
