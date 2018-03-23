@@ -5,22 +5,15 @@ using namespace std;
 
 namespace hdt {
 
-bool pairComparator(const pair<size_t, unsigned char*>& p1, const pair<size_t, unsigned char*>& p2) {
-    string s1 = string(reinterpret_cast<char*>(p1.second));
-    string s2 = string(reinterpret_cast<char*>(p2.second));
-    return s1.compare(s2) < 0;
-}
-
-CatCommon::CatCommon(IteratorUCharString *it1, IteratorUCharString *it2) : it1(it1), it2(it2) {
+CatCommon::CatCommon(IteratorUCharString *it1, IteratorUCharString *it2)
+        : it1(it1), it2(it2), has_next(false), counted(false), count1(0), count2(0), commonNum(0)
+{
     if(it1->hasNext()) {
         list.push_back(make_pair((size_t) 1, it1->next()));
     }
     if(it2->hasNext()) {
         list.push_back(make_pair((size_t) 2, it2->next()));
     }
-
-    count1 = count2 = 0;
-    has_next = false;
 
     helpNext();
 }
@@ -40,12 +33,14 @@ pair<size_t,size_t> CatCommon::next() {
 
 void CatCommon::helpNext() {
     while (list.size() != 0) {
-        sort(list.begin(), list.end(), pairComparator);
-
         if (list.size() == 2) {
             string s1 = string(reinterpret_cast<char *>(list[0].second));
             string s2 = string(reinterpret_cast<char *>(list[1].second));
-
+            // Sort
+            if(s1.compare(s2) > 0) {
+                iter_swap(list.begin(), list.begin()+1);
+            }
+            // If pair has common terms:
             if (!s1.compare(s2)) {
                 has_next = true;
                 next_t = make_pair(count1, count2);
@@ -87,4 +82,16 @@ void CatCommon::helpNext() {
         }
     }
 }
+
+size_t CatCommon::getCommonNum() {
+    if (!counted) {
+        while(this->hasNext()) {
+            this->next();
+            ++commonNum;
+        }
+        counted=true;
+    }
+    return commonNum;
+}
+
 }
