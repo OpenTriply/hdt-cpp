@@ -1,4 +1,4 @@
-SUBDIRS = . tools tests
+SUBDIRS = . tools tests benchmarks/src
 
 AUTOMAKE_OPTIONS = subdir-objects
 
