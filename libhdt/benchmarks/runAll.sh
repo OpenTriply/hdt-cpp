@@ -14,7 +14,7 @@ mkdir -p log
 ####################################
 # 1. Error log
 logError=log/error.log
-t_logError=$logHDTGenTime.$current_time
+t_logError=$logError.$current_time
 
 # 2. HDT/Index generation
 logHDTGenTime=log/HDTgeneration_time.log
@@ -44,7 +44,10 @@ for filename in ${data%%/}/*; do
     echo "1. Generating HDT and Index:"
 
     output="${filename%.*}"".hdt"
-    out=`src/HDTgeneration $filename $output 2>/dev/null`
+    echo "Output of HDT generation: "$filename >> $t_logError
+    out=`src/HDTgeneration $filename $output 2>> $t_logError`
+    echo >> $t_logError
+
     # Store HDT generation time usage to an array
     arr_usage1=($(echo "$out"|awk '/HDT generation/{nr[NR+2]}; NR in nr'))
     # Store Index generation time usage to an array
