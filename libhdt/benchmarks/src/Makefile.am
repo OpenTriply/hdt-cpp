@@ -1,4 +1,4 @@
-bin_PROGRAMS = HDTgeneration
+bin_PROGRAMS = HDTgeneration HDTsearch
 
 AM_DEFAULT_SOURCE_EXT = .cpp
 
