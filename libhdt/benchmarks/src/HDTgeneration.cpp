@@ -15,7 +15,6 @@ int main(int argc, char *argv[]) {
 
     string inFile = argv[1];
     string outFile = argv[2];
-    string logFile = argv[3];
 
     string baseUri="<file://"+inFile+">";
 
