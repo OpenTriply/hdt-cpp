@@ -21,12 +21,19 @@ logHDTGenTime=log/HDTgeneration_time.log
 t_logHDTGenTime=$logHDTGenTime.$current_time
 headers_logHDTGenTime="Filename\tTripleNum\tHDTGen_exec\tHDTGen_utime\tHDTGen_stime\tIndexGen_exec\tIndexGen_utime\tIndexGen_stime"
 
-# Create stderr log file
+# 3. HDT search
+t_logHDTSearchTime=log/HDTsearch_time.log
+t_logHDTSearchTime=$t_logHDTSearchTime.$current_time
+headers_logHDTSearchTime="Filename\tTripleNum\tHDTLoad_exec\tHDTLoad_utime\tHDTLoad_stime"
+
+# Create log files
 touch $t_logError
 touch $t_logHDTGenTime
+touch $t_logHDTSearchTime
 
 # Set headers
 echo -e $headers_logHDTGenTime >> $t_logHDTGenTime
+echo -e $headers_logHDTSearchTime >> $t_logHDTSearchTime
 
 # Directory of rdf files
 data=data/
@@ -62,6 +69,22 @@ for filename in ${data%%/}/*; do
     # Append to log file
     echo -e $row >> $t_logHDTGenTime
     echo "Done"
+
+      #############################
+     # Loading HDT before Search #
+    #############################
+    echo "2. Loading HDT before Search:"
+    echo -e "\nOutput of HDT loading before search: "$filename >> $t_logError
+    out=`src/HDTsearch $output 2>> $t_logError`
+    echo -e "\n" >>  $t_logError
+    # Store HDT load time usage to an array
+    arr_usage1=($(echo "$out"|awk '/HDT loading before search/{nr[NR+2]}; NR in nr'))
+    echo $arr_usage1
+    # Create tab-separated entry
+    row=$filename"\t"$lines"\t"${arr_usage1[0]}"\t"${arr_usage1[1]}"\t"${arr_usage1[2]}
+    echo -e $row >> $t_logHDTSearchTime
+    echo "Done"
+
     ./clearAll.sh
 done
 
