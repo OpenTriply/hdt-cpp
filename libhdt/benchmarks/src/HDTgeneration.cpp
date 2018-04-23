@@ -42,17 +42,18 @@ int main(int argc, char *argv[]) {
         auto end1 = steady_clock::now();
 
         // Calculate intervals
-        auto diff_exec1 = duration_cast<seconds>(end1-start1);
+        auto diff_exec1 = duration_cast<milliseconds>(end1-start1);
 
-        utime_start = start_usage.ru_utime.tv_sec;
-        utime_end = end_usage.ru_utime.tv_sec;
+        utime_start = start_usage.ru_utime.tv_sec*1000 + start_usage.ru_utime.tv_usec/1000.0;
+        utime_end = end_usage.ru_utime.tv_sec*1000 + end_usage.ru_utime.tv_usec/1000.0;
         diff_utime = utime_end - utime_start;
 
-        stime_start = start_usage.ru_stime.tv_sec;
-        stime_end = end_usage.ru_stime.tv_sec;
+        stime_start = start_usage.ru_stime.tv_sec*1000 + start_usage.ru_stime.tv_usec/1000.0;
+        stime_end = end_usage.ru_stime.tv_sec*1000 + end_usage.ru_stime.tv_usec/1000.0;
         diff_stime = stime_end - stime_start;
 
-        cout << "Time(seconds): HDT generation" << endl;
+
+        cout << "Time(milliseconds): HDT generation" << endl;
         cout << "Exec\tUser\tSys\n" << diff_exec1.count() << "\t" << diff_utime << "\t" << diff_stime << endl;
 
         // Get start execution time
@@ -73,17 +74,19 @@ int main(int argc, char *argv[]) {
         auto end2 = steady_clock::now();
 
         // Calculate intervals
-        auto diff_exec2 = duration_cast<seconds>(end2-start2);
+        auto diff_exec2 = duration_cast<milliseconds>(end2-start2);
 
-        utime_start = start_usage.ru_utime.tv_sec;
-        utime_end = end_usage.ru_utime.tv_sec;
+        utime_start = start_usage.ru_utime.tv_sec*1000 + start_usage.ru_utime.tv_usec/1000.0;
+        utime_end = end_usage.ru_utime.tv_sec*1000 + end_usage.ru_utime.tv_usec/1000.0;
         diff_utime = utime_end - utime_start;
 
-        stime_start = start_usage.ru_stime.tv_sec;
-        stime_end = end_usage.ru_stime.tv_sec;
+        stime_start = start_usage.ru_stime.tv_sec*1000 + start_usage.ru_stime.tv_usec/1000;
+        stime_end = end_usage.ru_stime.tv_sec*1000 + end_usage.ru_stime.tv_usec/1000;
+
         diff_stime = stime_end - stime_start;
 
-        cout << "Time(seconds): Index generation" << endl;
+
+        cout << "Time(milliseconds): Index generation" << endl;
         cout << "Exec\tUser\tSys\n" << diff_exec2.count() << "\t" << diff_utime << "\t" << diff_stime << endl;
 
     } catch (std::exception& e) {

@@ -34,18 +34,22 @@ int main(int argc, char *argv[]) {
     auto end1 = steady_clock::now();
 
     // Calculate intervals
-    auto diff_exec1 = duration_cast<seconds>(end1-start1);
+    auto diff_exec1 = duration_cast<milliseconds>(end1-start1);
 
-    utime_start = start_usage.ru_utime.tv_sec;
-    utime_end = end_usage.ru_utime.tv_sec;
+    utime_start = start_usage.ru_utime.tv_sec*1000 + start_usage.ru_utime.tv_usec/1000.0;
+    utime_end = end_usage.ru_utime.tv_sec*1000 + end_usage.ru_utime.tv_usec/1000.0;
     diff_utime = utime_end - utime_start;
 
-    stime_start = start_usage.ru_stime.tv_sec;
-    stime_end = end_usage.ru_stime.tv_sec;
+    stime_start = start_usage.ru_stime.tv_sec*1000 + start_usage.ru_stime.tv_usec/1000.0;
+    stime_end = end_usage.ru_stime.tv_sec*1000 + end_usage.ru_stime.tv_usec/1000.0;
     diff_stime = stime_end - stime_start;
 
-    cout << "Time(seconds): HDT loading before search" << endl;
+    cout << "Time(milliseconds): HDT loading before search" << endl;
     cout << "Exec\tUser\tSys\n" << diff_exec1.count() << "\t" << diff_utime << "\t" << diff_stime << endl;
+
+      ///////////////
+     // Querying! //
+    ///////////////
 
     delete hdt; // Remember to delete instance when no longer needed!
 }
