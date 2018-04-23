@@ -73,17 +73,17 @@ for filename in ${data%%/}/*; do
       #############################
      # Loading HDT before Search #
     #############################
-    echo "2. Loading HDT before Search:"
-    echo -e "\nOutput of HDT loading before search: "$filename >> $t_logError
-    out=`src/HDTsearch $output 2>> $t_logError`
-    echo -e "\n" >>  $t_logError
-    # Store HDT load time usage to an array
-    arr_usage1=($(echo "$out"|awk '/HDT loading before search/{nr[NR+2]}; NR in nr'))
-    echo $arr_usage1
-    # Create tab-separated entry
-    row=$filename"\t"$lines"\t"${arr_usage1[0]}"\t"${arr_usage1[1]}"\t"${arr_usage1[2]}
-    echo -e $row >> $t_logHDTSearchTime
-    echo "Done"
+#    echo "2. Loading HDT before Search:"
+#    echo -e "\nOutput of HDT loading before search: "$filename >> $t_logError
+#    out=`src/HDTsearch $output 2>> $t_logError`
+#    echo -e "\n" >>  $t_logError
+#    # Store HDT load time usage to an array
+#    arr_usage1=($(echo "$out"|awk '/HDT loading before search/{nr[NR+2]}; NR in nr'))
+#    echo $arr_usage1
+#    # Create tab-separated entry
+#    row=$filename"\t"$lines"\t"${arr_usage1[0]}"\t"${arr_usage1[1]}"\t"${arr_usage1[2]}
+#    echo -e $row >> $t_logHDTSearchTime
+#    echo "Done"
 
     ./clearAll.sh
 done
