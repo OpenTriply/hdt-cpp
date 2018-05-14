@@ -37,7 +37,7 @@ namespace hdt {
 
 
 class BasicHDT : public HDT {
-private:
+protected:
 	Header *header;
 	Dictionary *dictionary;
 	Triples *triples;
