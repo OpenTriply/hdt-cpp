@@ -41,7 +41,7 @@
 namespace hdt {
 
 class FourSectionDictionary : public Dictionary {
-private:
+protected:
 	csd::CSD *subjects;
 	csd::CSD *predicates;
 	csd::CSD *objects;
