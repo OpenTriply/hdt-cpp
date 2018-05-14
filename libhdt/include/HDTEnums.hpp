@@ -125,6 +125,19 @@ enum ResultEstimationType {
     EXACT
 };
 
+enum CatMappingType {
+    CAT_SHARED=1,
+    CAT_SUBJECTS,
+    CAT_OBJECTS,
+    CAT_PREDICATES
+};
+
+enum CatMappingBackType {
+    CAT_NONE,   /// Used only for initialization.
+    CAT_SUBJ1,  /// Inverse mapping to input subjects of first hdt.
+    CAT_SUBJ2   /// Inverse mapping to input subjects of second hdt.
+};
+
 }
 
 #endif /* HDT_HDTENUMS_HPP_ */
