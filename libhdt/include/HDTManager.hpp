@@ -90,6 +90,16 @@ public:
 	 * @throws ParserException
 	 */
 	static HDT *generateHDT(const char *rdfFileName, const char *baseURI, RDFNotation rdfNotation, HDTSpecification &hdtFormat, ProgressListener *listener=NULL);
+
+	/**
+	 * Merge two HDT files.
+	 * @param hdt1 First input HDT.
+	 * @param hdt2 Second input HDT.
+	 * @param spec Specification file.
+	 * @param listener Listener to get notified of loading progress.
+	 * @return The merged HDT file.
+	 */
+	static HDT *catHDT(const char *hdt1, const char *hdt2, HDTSpecification &spec, ProgressListener *listener=NULL);
 };
 }
 
