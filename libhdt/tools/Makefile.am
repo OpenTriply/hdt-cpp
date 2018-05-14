@@ -1,4 +1,4 @@
-bin_PROGRAMS = hdt2rdf hdtInfo hdtSearch modifyHeader rdf2hdt replaceHeader searchHeader
+bin_PROGRAMS = hdt2rdf hdtCat hdtInfo hdtSearch modifyHeader rdf2hdt replaceHeader searchHeader
 
 AM_DEFAULT_SOURCE_EXT = .cpp
 
