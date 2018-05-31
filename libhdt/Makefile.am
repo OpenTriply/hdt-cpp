@@ -68,6 +68,7 @@ src/sparql/MergeJoinBinding.cpp \
 src/sparql/QueryProcessor.cpp \
 src/sparql/SortBinding.cpp \
 src/sparql/TriplePatternBinding.cpp \
+src/triples/BitmapTriplesCat.cpp \
 src/triples/BitmapTriples.cpp \
 src/triples/BitmapTriplesIterators.cpp \
 src/triples/PlainTriples.cpp \
@@ -147,6 +148,7 @@ src/sparql/SortBinding.hpp\
 src/sparql/TriplePatternBinding.hpp\
 src/sparql/VarBindingInterface.hpp\
 src/sparql/VarFilterBinding.hpp\
+src/triples/BitmapTriplesCat.hpp\
 src/triples/BitmapTriples.hpp\
 src/triples/PlainTriples.hpp\
 src/triples/predicateindex.hpp\
