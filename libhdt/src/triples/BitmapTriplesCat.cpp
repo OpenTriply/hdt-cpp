@@ -124,7 +124,7 @@ BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() {}
 //
 //}
 
-TripleID BitmapTriplesIteratorCat::mapTriple(TripleID* tripleID, size_t num)
+TripleID *BitmapTriplesIteratorCat::mapTriple(TripleID* tripleID, size_t num)
 {
     if (num == 1) {
         size_t new_subject1 = mapIdSection(tripleID->getSubject(), dictionaryCat->getMappingSh1(), dictionaryCat->getMappingS1());
@@ -155,7 +155,7 @@ size_t BitmapTriplesIteratorCat::mapIdSection(size_t id, CatMapping* catMappingS
     }
 }
 
-size_t BitmapTriplesIteratorCat::mapIdPredicate(size_t id, CatMapping* catMappingShared, CatMapping* catMapping)
+size_t BitmapTriplesIteratorCat::mapIdPredicate(size_t id, CatMapping* catMapping)
 {
     return catMapping->getMapping(id - 1);
 }

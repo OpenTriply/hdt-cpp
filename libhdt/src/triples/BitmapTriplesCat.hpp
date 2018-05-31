@@ -48,9 +48,9 @@ public:
     //    bool isSorted(TripleComponentRole role);
     //
     //    vector<TripleID> getTripleID(size_t count);
-    TripleID mapTriple(TripleID* tripleID, size_t num);
+    TripleID *mapTriple(TripleID* tripleID, size_t num);
     size_t mapIdSection(size_t id, CatMapping* catMappingShared, CatMapping* catMapping);
-    size_t mapIdPredicate(size_t id, CatMapping* catMappingShared, CatMapping* catMapping);
+    size_t mapIdPredicate(size_t id, CatMapping* catMapping);
 };
 }
 
