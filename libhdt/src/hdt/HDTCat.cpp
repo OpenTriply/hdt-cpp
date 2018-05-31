@@ -6,6 +6,10 @@ HDTCat::HDTCat(HDTSpecification &spec, HDT *hdt1, HDT *hdt2, ProgressListener *l
 {
     dictionaryCat = new FourSectionDictionaryCat(spec);
     dictionaryCat->cat(hdt1->getDictionary(), hdt2->getDictionary());
+    this->dictionary = dictionaryCat;
+    triplesCat = new BitmapTriplesCat();
+    triplesCat->cat(hdt1->getTriples(), hdt2->getTriples(), dictionaryCat, listener);
+    //this->triples = triplesCat;
 }
 
 }
