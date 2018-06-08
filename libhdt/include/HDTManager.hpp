@@ -95,11 +95,12 @@ public:
 	 * Merge two HDT files.
 	 * @param hdt1 First input HDT.
 	 * @param hdt2 Second input HDT.
+	 * @param baseURI Base URI for the dataset
 	 * @param spec Specification file.
 	 * @param listener Listener to get notified of loading progress.
 	 * @return The merged HDT file.
 	 */
-	static HDT *catHDT(const char *hdt1, const char *hdt2, HDTSpecification &spec, ProgressListener *listener=NULL);
+	static HDT *catHDT(const char *hdt1, const char *hdt2, const char *baseURI, HDTSpecification &spec, ProgressListener *listener=NULL);
 };
 }
 

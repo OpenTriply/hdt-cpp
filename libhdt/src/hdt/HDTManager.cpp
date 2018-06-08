@@ -82,10 +82,10 @@ HDT *HDTManager::generateHDT(const char *rdfFileName, const char *baseURI, RDFNo
 	return hdt;
 }
 
-HDT *HDTManager::catHDT(const char *hdt1, const char *hdt2, HDTSpecification &spec, ProgressListener *listener){
+HDT *HDTManager::catHDT(const char *hdt1, const char *hdt2, const char *baseUri, HDTSpecification &spec, ProgressListener *listener){
 	HDT *mapHDT1 = mapHDT(hdt1, listener);
 	HDT *mapHDT2 = mapHDT(hdt2, listener);
-	HDTCat *hdtcat = new HDTCat(spec, mapHDT1, mapHDT2, listener);
+	HDTCat *hdtcat = new HDTCat(spec, baseUri, mapHDT1, mapHDT2, listener);
 	return hdtcat;
 }
 
