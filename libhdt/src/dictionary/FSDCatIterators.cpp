@@ -283,20 +283,20 @@ unsigned char* NotSharedMergeIterator::next()
         if (cmp < 0) {
             retString = string1;
             prevString = 1;
-            mapping1.push_back(make_pair(count1, pos));
+            mapping1.push_back(make_pair(count1, pos+1));
             count1++;
         }
         else if (cmp > 0) {
             retString = string2;
             prevString = 2;
-            mapping2.push_back(make_pair(count2, pos));
+            mapping2.push_back(make_pair(count2, pos+1));
             count2++;
         }
         else {
             retString = string1;
             prevString = -1;
-            mapping1.push_back(make_pair(count1, pos));
-            mapping2.push_back(make_pair(count2, pos));
+            mapping1.push_back(make_pair(count1, pos+1));
+            mapping2.push_back(make_pair(count2, pos+1));
             count1++;
             count2++;
         }
@@ -305,13 +305,13 @@ unsigned char* NotSharedMergeIterator::next()
         if (string1) {
             prevString = 1;
             retString = string1;
-            mapping1.push_back(make_pair(count1, pos));
+            mapping1.push_back(make_pair(count1, pos+1));
             count1++;
         }
         else {
             prevString = 2;
             retString = string2;
-            mapping2.push_back(make_pair(count2, pos));
+            mapping2.push_back(make_pair(count2, pos+1));
             count2++;
         }
     }
@@ -497,15 +497,15 @@ unsigned char* SharedMergeIterator::next()
         if (cmp < 0) {
             retString = string1;
             prevString = 1;
-            mapping1.push_back(make_pair(count1, pos));
+            mapping1.push_back(make_pair(count1, pos+1));
             if (count1 == commonShared1Subjects2.first) {
-                this->mappingS2Sh.push_back(make_pair(commonShared1Subjects2.second, pos));
+                this->mappingS2Sh.push_back(make_pair(commonShared1Subjects2.second, pos+1));
                 if (itCommonShared1Subjects2->hasNext()) {
                     commonShared1Subjects2 = itCommonShared1Subjects2->next();
                 }
             }
             if (count1 == commonShared1Objects2.first) {
-                this->mappingO2Sh.push_back(make_pair(commonShared1Objects2.second, pos));
+                this->mappingO2Sh.push_back(make_pair(commonShared1Objects2.second, pos+1));
                 if (itCommonShared1Objects2->hasNext()) {
                     commonShared1Objects2 = itCommonShared1Objects2->next();
                 }
@@ -515,15 +515,15 @@ unsigned char* SharedMergeIterator::next()
         else if (cmp > 0) {
             retString = string2;
             prevString = 2;
-            mapping2.push_back(make_pair(count2, pos));
+            mapping2.push_back(make_pair(count2, pos+1));
             if (count2 == commonShared2Subjects1.first) {
-                this->mappingS1Sh.push_back(make_pair(commonShared2Subjects1.second, pos));
+                this->mappingS1Sh.push_back(make_pair(commonShared2Subjects1.second, pos+1));
                 if (itCommonShared2Subjects1->hasNext()) {
                     commonShared2Subjects1 = itCommonShared2Subjects1->next();
                 }
             }
             if (count2 == commonShared2Objects1.first) {
-                this->mappingO1Sh.push_back(make_pair(commonShared2Objects1.second, pos));
+                this->mappingO1Sh.push_back(make_pair(commonShared2Objects1.second, pos+1));
                 if (itCommonShared2Objects1->hasNext()) {
                     commonShared2Objects1 = itCommonShared2Objects1->next();
                 }
@@ -533,28 +533,28 @@ unsigned char* SharedMergeIterator::next()
         else {
             retString = string1;
             prevString = -1;
-            mapping1.push_back(make_pair(count1, pos));
+            mapping1.push_back(make_pair(count1, pos+1));
             if (count1 == commonShared1Subjects2.first) {
-                this->mappingS2Sh.push_back(make_pair(commonShared1Subjects2.second, pos));
+                this->mappingS2Sh.push_back(make_pair(commonShared1Subjects2.second, pos+1));
                 if (itCommonShared1Subjects2->hasNext()) {
                     commonShared1Subjects2 = itCommonShared1Subjects2->next();
                 }
             }
             if (count1 == commonShared1Objects2.first) {
-                this->mappingO2Sh.push_back(make_pair(commonShared1Objects2.second, pos));
+                this->mappingO2Sh.push_back(make_pair(commonShared1Objects2.second, pos+1));
                 if (itCommonShared1Objects2->hasNext()) {
                     commonShared1Objects2 = itCommonShared1Objects2->next();
                 }
             }
-            mapping2.push_back(make_pair(count2, pos));
+            mapping2.push_back(make_pair(count2, pos+1));
             if (count2 == commonShared2Subjects1.first) {
-                this->mappingS1Sh.push_back(make_pair(commonShared2Subjects1.second, pos));
+                this->mappingS1Sh.push_back(make_pair(commonShared2Subjects1.second, pos+1));
                 if (itCommonShared2Subjects1->hasNext()) {
                     commonShared2Subjects1 = itCommonShared2Subjects1->next();
                 }
             }
             if (count2 == commonShared2Objects1.first) {
-                this->mappingO1Sh.push_back(make_pair(commonShared2Objects1.second, pos));
+                this->mappingO1Sh.push_back(make_pair(commonShared2Objects1.second, pos+1));
                 if (itCommonShared2Objects1->hasNext()) {
                     commonShared2Objects1 = itCommonShared2Objects1->next();
                 }
@@ -567,15 +567,15 @@ unsigned char* SharedMergeIterator::next()
         if (string1) {
             prevString = 1;
             retString = string1;
-            mapping1.push_back(make_pair(count1, pos));
+            mapping1.push_back(make_pair(count1, pos+1));
             if (count1 == commonShared1Subjects2.first) {
-                this->mappingS2Sh.push_back(make_pair(commonShared1Subjects2.second, pos));
+                this->mappingS2Sh.push_back(make_pair(commonShared1Subjects2.second, pos+1));
                 if (itCommonShared1Subjects2->hasNext()) {
                     commonShared1Subjects2 = itCommonShared1Subjects2->next();
                 }
             }
             if (count1 == commonShared1Objects2.first) {
-                this->mappingO2Sh.push_back(make_pair(commonShared1Objects2.second, pos));
+                this->mappingO2Sh.push_back(make_pair(commonShared1Objects2.second, pos+1));
                 if (itCommonShared1Objects2->hasNext()) {
                     commonShared1Objects2 = itCommonShared1Objects2->next();
                 }
@@ -585,15 +585,15 @@ unsigned char* SharedMergeIterator::next()
         else {
             prevString = 2;
             retString = string2;
-            mapping2.push_back(make_pair(count2, pos));
+            mapping2.push_back(make_pair(count2, pos+1));
             if (count2 == commonShared2Subjects1.first) {
-                this->mappingS1Sh.push_back(make_pair(commonShared2Subjects1.second, pos));
+                this->mappingS1Sh.push_back(make_pair(commonShared2Subjects1.second, pos+1));
                 if (itCommonShared2Subjects1->hasNext()) {
                     commonShared2Subjects1 = itCommonShared2Subjects1->next();
                 }
             }
             if (count2 == commonShared2Objects1.first) {
-                this->mappingO1Sh.push_back(make_pair(commonShared2Objects1.second, pos));
+                this->mappingO1Sh.push_back(make_pair(commonShared2Objects1.second, pos+1));
                 if (itCommonShared2Objects1->hasNext()) {
                     commonShared2Objects1 = itCommonShared2Objects1->next();
                 }
@@ -651,10 +651,10 @@ unsigned char* SharedMergeIterator::findNextFromCommon()
     if (ret1 && ret2) {
         int cmp = strcmp(reinterpret_cast<const char*>(ret1), reinterpret_cast<const char*>(ret2));
         if (!cmp) {
-            this->mappingS1Sh.push_back(make_pair(add1.second.first, pos));
-            this->mappingO2Sh.push_back(make_pair(add1.second.second, pos));
-            this->mappingS2Sh.push_back(make_pair(add2.second.first, pos));
-            this->mappingO1Sh.push_back(make_pair(add2.second.second, pos));
+            this->mappingS1Sh.push_back(make_pair(add1.second.first, pos+1));
+            this->mappingO2Sh.push_back(make_pair(add1.second.second, pos+1));
+            this->mappingS2Sh.push_back(make_pair(add2.second.first, pos+1));
+            this->mappingO1Sh.push_back(make_pair(add2.second.second, pos+1));
             if (itS1O2->hasNext()) {
                 this->add1 = itS1O2->nextCommonString();
             }
@@ -671,8 +671,8 @@ unsigned char* SharedMergeIterator::findNextFromCommon()
             return ret1;
         }
         else if (cmp < 1) {
-            this->mappingS1Sh.push_back(make_pair(add1.second.first, pos));
-            this->mappingO2Sh.push_back(make_pair(add1.second.second, pos));
+            this->mappingS1Sh.push_back(make_pair(add1.second.first, pos+1));
+            this->mappingO2Sh.push_back(make_pair(add1.second.second, pos+1));
             if (itS1O2->hasNext()) {
                 this->add1 = itS1O2->nextCommonString();
             }
@@ -682,8 +682,8 @@ unsigned char* SharedMergeIterator::findNextFromCommon()
             return ret1;
         }
         else {
-            this->mappingS2Sh.push_back(make_pair(add2.second.first, pos));
-            this->mappingO1Sh.push_back(make_pair(add2.second.second, pos));
+            this->mappingS2Sh.push_back(make_pair(add2.second.first, pos+1));
+            this->mappingO1Sh.push_back(make_pair(add2.second.second, pos+1));
             if (itS2O1->hasNext()) {
                 this->add2 = itS2O1->nextCommonString();
             }
@@ -694,8 +694,8 @@ unsigned char* SharedMergeIterator::findNextFromCommon()
         }
     }
     else if (ret1) {
-        this->mappingS1Sh.push_back(make_pair(add1.second.first, pos));
-        this->mappingO2Sh.push_back(make_pair(add1.second.second, pos));
+        this->mappingS1Sh.push_back(make_pair(add1.second.first, pos+1));
+        this->mappingO2Sh.push_back(make_pair(add1.second.second, pos+1));
         if (itS1O2->hasNext()) {
             this->add1 = itS1O2->nextCommonString();
         }
@@ -705,8 +705,8 @@ unsigned char* SharedMergeIterator::findNextFromCommon()
         return ret1;
     }
     else if (ret2) {
-        this->mappingS2Sh.push_back(make_pair(add2.second.first, pos));
-        this->mappingO1Sh.push_back(make_pair(add2.second.second, pos));
+        this->mappingS2Sh.push_back(make_pair(add2.second.first, pos+1));
+        this->mappingO1Sh.push_back(make_pair(add2.second.second, pos+1));
         if (itS2O1->hasNext()) {
             this->add2 = itS2O1->nextCommonString();
         }
