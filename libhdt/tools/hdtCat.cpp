@@ -17,6 +17,7 @@ void help() {
     cout << "\t-i\t\t\tAlso generate index to solve all triple patterns." << endl;
     cout << "\t-c\t<configfile>\tHDT Config options file" << endl;
     cout << "\t-o\t<options>\tHDT Additional options (option1=value1;option2=value2;...)" << endl;
+    cout << "\t-B\t\"<base URI>\"\tBase URI of the dataset." << endl;
     cout << "\t-V\tPrints the HDT version number." << endl;
     cout << "\t-p\tPrints a progress indicator." << endl;
     cout << "\t-v\tVerbose output" << endl;
@@ -31,6 +32,7 @@ int main(int argc, char **argv) {
     bool generateIndex=false;
     string configFile;
     string options;
+    string baseUri;
     int flag;
 
     while ((flag = getopt (argc, argv, "c:o:vpiVh")) != -1)
@@ -48,6 +50,9 @@ int main(int argc, char **argv) {
                 break;
             case 'p':
                 showProgress = true;
+                break;
+            case 'B':
+                baseUri = optarg;
                 break;
             case 'i':
                 generateIndex=true;
@@ -95,6 +100,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if(baseUri=="") {
+        baseUri="<file://"+outputFile+">";
+    }
+
     // Process
     HDTSpecification spec(configFile);
 
@@ -103,18 +112,9 @@ int main(int argc, char **argv) {
     try {
         StopWatch globalTimer;
         ProgressListener* progress = showProgress ? new StdoutProgressListener() : NULL;
-        HDT *hdt = HDTManager::catHDT(inputFile1.c_str(), inputFile2.c_str(), spec, progress);
+        HDT *hdt = HDTManager::catHDT(inputFile1.c_str(), inputFile2.c_str(), baseUri.c_str(), spec, progress);
 
-//        if(outputFile!="-") {
-//            RDFSerializer *serializer = RDFSerializer::getSerializer(outputFile.c_str(), notation);
-//            hdt->saveToRDF(*serializer);
-//            delete serializer;
-//        } else {
-//            RDFSerializer *serializer = RDFSerializer::getSerializer(cout, notation);
-//            hdt->saveToRDF(*serializer);
-//            delete serializer;
-//        }
-//        delete hdt;
+        hdt->saveToHDT(outputFile.c_str(), progress);
 
         globalTimer.stop();
         vout << "HDT Successfully generated." << endl;
@@ -127,6 +127,7 @@ int main(int argc, char **argv) {
             hdt = HDTManager::indexedHDT(hdt, progress);
         }
 
+        delete hdt;
         delete progress;
     } catch (std::exception& e) {
         cerr << "ERROR: " << e.what() << endl;
