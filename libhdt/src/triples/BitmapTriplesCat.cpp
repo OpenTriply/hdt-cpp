@@ -3,7 +3,12 @@
 namespace hdt {
 
 BitmapTriplesCat::BitmapTriplesCat()
-        : BitmapTriples()
+    : BitmapTriples()
+{
+}
+
+BitmapTriplesCat::BitmapTriplesCat(HDTSpecification &spec)
+    : BitmapTriples(spec)
 {
 }
 
@@ -14,117 +19,140 @@ BitmapTriplesCat::~BitmapTriplesCat()
 void BitmapTriplesCat::cat(Triples* hdt1, Triples* hdt2, FourSectionDictionaryCat* dict, ProgressListener* listener)
 {
     BitmapTriplesIteratorCat* joinIterator = new BitmapTriplesIteratorCat(hdt1, hdt2, dict);
-    //this->load()
-    //this->load(joinIterator, listener);
+    TriplesList* triplesList = new TriplesList();
+    triplesList->insert(joinIterator);
+    triplesList->sort(this->getOrder(), listener);
+    triplesList->removeDuplicates(listener);
+    this->load(*triplesList, listener);
 }
 
 BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* hdt1, Triples* hdt2, FourSectionDictionaryCat* dictCat)
-        : count(1)
+    : count(1)
 {
     this->dictionaryCat = dictCat;
     this->hdt1 = hdt1;
     this->hdt2 = hdt2;
-    //arrayOfTriples = getTripleID(1);
+    arrayOfTriples = getTripleID((size_t)1);
+    triplesIterator = arrayOfTriples.begin();
     count++;
 }
 
 BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() {}
 
-//bool BitmapTriplesIteratorCat::hasNext() {
-//return false;
-////    if(count < dictionaryCat->getMappingS()->getSize()) {
-////        return true;
-////    }
-////    else {
-////        if(list->hasNext()) {
-////            return true;
-////        }
-////        else {
-////            return false;
-////        }
-////    }
-//}
-//
-//TripleID *BitmapTriplesIteratorCat::next() {
-//
-//}
-//
-//bool BitmapTriplesIteratorCat::hasPrevious() {
-//    return false;
-//}
-//
-//TripleID *BitmapTriplesIteratorCat::previous(){
-//    return nullptr;
-//}
-//
-//void BitmapTriplesIteratorCat::goToStart() {
-//}
-//
-//size_t BitmapTriplesIteratorCat::estimatedNumResults() {
-//
-//}
-//
-//ResultEstimationType BitmapTriplesIteratorCat::numResultEstimation() {
-//    return UNKNOWN;
-//}
-//
-//TripleComponentOrder BitmapTriplesIteratorCat::getOrder() {
-//    return Unknown;
-//}
-//
-//bool BitmapTriplesIteratorCat::canGoTo() {
-//    return false;
-//}
-//
-//void BitmapTriplesIteratorCat::goTo(unsigned int pos) {
-//}
-//
-//void BitmapTriplesIteratorCat::skip(unsigned int pos) {
-//}
-//
-//bool BitmapTriplesIteratorCat::findNextOccurrence(unsigned int value, unsigned char component) {
-//    return false;
-//}
-//
-//bool BitmapTriplesIteratorCat::isSorted(TripleComponentRole role) {
-//    return false;
-//}
-//
-//vector<TripleID> BitmapTriplesIteratorCat::getTripleID(size_t count) {
-//    set<TripleID> tripleSet;
-//    vector<size_t> mapping = dictionaryCat->getMappingS()->getMapping(count);
-//    vector<CatMappingBackType> mappingType = dictionaryCat->getMappingS()->getType(count);
-//
-//    IteratorTripleID *it = nullptr;
-//    for(size_t i=0; i<mapping.size(); i++){
-//        if(mappingType[i] == 1) {
-//            //it = hdt1->search(new TripleID(mapping[i], 0, 0));
-//            while(it->hasNext()) {
-//                //set.add();
-//                //TODO: add to set
-//            }
-//        }
-//        if(mapping[i] == 2) {
-//            //it = hdt2->search(new TripleID(mapping[i], 0, 0));
-//            while(it->hasNext()) {
-//                //TODO: add to set
-//            }
-//        }
-//        // Free memory if needed.
-//        if(it != nullptr) {
-//            delete it;
-//            it = nullptr;
-//        }
-//    }
-//    //TODO : vector<Triple ID> triples =
-//    //TODO: sort vector
-//    //TODO: return triples
-//    //return NULL;
-//
-//
-//}
+bool BitmapTriplesIteratorCat::hasNext()
+{
+    if (count < dictionaryCat->getMappingS()->getSize()) {
+        return true;
+    }
+    else {
+        if (triplesIterator != arrayOfTriples.end()) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+}
 
-TripleID *BitmapTriplesIteratorCat::mapTriple(TripleID* tripleID, size_t num)
+TripleID* BitmapTriplesIteratorCat::next()
+{
+    TripleID* ret;
+    if (triplesIterator == arrayOfTriples.end()) {
+        arrayOfTriples = getTripleID(count);
+        triplesIterator = arrayOfTriples.begin();
+        count++;
+    }
+    ret = *triplesIterator;
+    triplesIterator++;
+    return ret;
+}
+
+bool BitmapTriplesIteratorCat::hasPrevious()
+{
+    return false;
+}
+
+TripleID* BitmapTriplesIteratorCat::previous()
+{
+    return nullptr;
+}
+
+void BitmapTriplesIteratorCat::goToStart()
+{
+}
+
+size_t BitmapTriplesIteratorCat::estimatedNumResults()
+{
+    return hdt1->searchAll()->estimatedNumResults() + hdt2->searchAll()->estimatedNumResults();
+}
+
+ResultEstimationType BitmapTriplesIteratorCat::numResultEstimation()
+{
+    return UNKNOWN;
+}
+
+TripleComponentOrder BitmapTriplesIteratorCat::getOrder()
+{
+    return Unknown;
+}
+
+bool BitmapTriplesIteratorCat::canGoTo()
+{
+    return false;
+}
+
+void BitmapTriplesIteratorCat::goTo(unsigned int pos)
+{
+}
+
+void BitmapTriplesIteratorCat::skip(unsigned int pos)
+{
+}
+
+bool BitmapTriplesIteratorCat::findNextOccurrence(unsigned int value, unsigned char component)
+{
+    return false;
+}
+
+bool BitmapTriplesIteratorCat::isSorted(TripleComponentRole role)
+{
+    return false;
+}
+
+vector<TripleID*> BitmapTriplesIteratorCat::getTripleID(size_t count)
+{
+    set<TripleID*> tripleSet;
+    vector<size_t> mapping = dictionaryCat->getMappingS()->getMapping(count);
+    vector<CatMappingBackType> mappingType = dictionaryCat->getMappingS()->getType(count);
+
+    IteratorTripleID* it = nullptr;
+
+    for (size_t i = 0; i < mapping.size(); i++) {
+        if (mappingType[i] == 1) {
+            TripleID pattern(mapping[i], (size_t)0, (size_t)0);
+            it = hdt1->search(pattern);
+            while (it->hasNext()) {
+                tripleSet.insert(mapTriple(it->next(), (size_t)1));
+            }
+        }
+        if (mappingType[i] == 2) {
+            TripleID pattern(mapping[i], (size_t)0, (size_t)0);
+            it = hdt2->search(pattern);
+            while (it->hasNext()) {
+                tripleSet.insert(mapTriple(it->next(), (size_t)2));
+            }
+        }
+        // Free memory if needed.
+        if (it != nullptr) {
+            delete it;
+            it = nullptr;
+        }
+    }
+    vector<TripleID*> triples(tripleSet.begin(), tripleSet.end());
+    return triples;
+}
+
+TripleID* BitmapTriplesIteratorCat::mapTriple(TripleID* tripleID, size_t num)
 {
     if (num == 1) {
         size_t new_subject1 = mapIdSection(tripleID->getSubject(), dictionaryCat->getMappingSh1(), dictionaryCat->getMappingS1());
