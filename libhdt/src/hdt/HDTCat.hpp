@@ -15,7 +15,8 @@ private:
     FourSectionDictionaryCat *dictionaryCat;
     BitmapTriplesCat *triplesCat;
 public:
-    HDTCat(HDTSpecification &spec, HDT *hdt1, HDT *hdt2, ProgressListener *listener);
+    HDTCat(HDTSpecification &spec, string baseUri, HDT *hdt1, HDT *hdt2, ProgressListener *listener);
+    void fillHeaderCat(const string& baseUri);
 };
 
 }
