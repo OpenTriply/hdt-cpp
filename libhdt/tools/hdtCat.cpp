@@ -124,7 +124,15 @@ int main(int argc, char **argv) {
         vout << ")  System(" << globalTimer.getSystemStr() << ")" << endl;
 
         if(generateIndex) {
+            StopWatch indexTimer;
             hdt = HDTManager::indexedHDT(hdt, progress);
+
+            indexTimer.stop();
+            vout << "HDT Successfully indexed." << endl;
+            vout << "Total processing time: ";
+            vout << "Clock(" << indexTimer.getRealStr();
+            vout << ")  User(" << indexTimer.getUserStr();
+            vout << ")  System(" << indexTimer.getSystemStr() << ")" << endl;
         }
 
         delete hdt;
