@@ -232,6 +232,10 @@ NotSharedMergeIterator::~NotSharedMergeIterator()
 {
     delete it1;
     delete it2;
+    delete it1common;
+    delete it2common;
+    if(string1 != NULL) delete string1;
+    if(string2 != NULL) delete string2;
 }
 
 bool NotSharedMergeIterator::hasNext()

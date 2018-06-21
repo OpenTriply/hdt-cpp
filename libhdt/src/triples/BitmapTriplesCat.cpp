@@ -24,6 +24,9 @@ void BitmapTriplesCat::cat(Triples* hdt1, Triples* hdt2, FourSectionDictionaryCa
     triplesList->sort(this->getOrder(), listener);
     triplesList->removeDuplicates(listener);
     this->load(*triplesList, listener);
+
+    delete triplesList;
+    delete joinIterator;
 }
 
 BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* hdt1, Triples* hdt2, FourSectionDictionaryCat* dictCat)
@@ -37,7 +40,9 @@ BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* hdt1, Triples* hdt2,
     count++;
 }
 
-BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() {}
+BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() {
+    cleanArrayOfTriples();
+}
 
 bool BitmapTriplesIteratorCat::hasNext()
 {
@@ -58,6 +63,7 @@ TripleID* BitmapTriplesIteratorCat::next()
 {
     TripleID* ret;
     if (triplesIterator == arrayOfTriples.end()) {
+        cleanArrayOfTriples();
         arrayOfTriples = getTripleID(count);
         triplesIterator = arrayOfTriples.begin();
         count++;
@@ -189,5 +195,13 @@ size_t BitmapTriplesIteratorCat::mapIdSection(size_t id, CatMapping* catMappingS
 size_t BitmapTriplesIteratorCat::mapIdPredicate(size_t id, CatMapping* catMapping)
 {
     return catMapping->getMapping(id - 1);
+}
+
+void BitmapTriplesIteratorCat::cleanArrayOfTriples() {
+    for (vector<TripleID*>::iterator pObj = arrayOfTriples.begin();
+         pObj != arrayOfTriples.end(); ++pObj) {
+        delete *pObj;
+    }
+    arrayOfTriples.clear();
 }
 }

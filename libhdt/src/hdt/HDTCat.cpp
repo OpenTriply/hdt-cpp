@@ -14,9 +14,11 @@ HDTCat::HDTCat(HDTSpecification &spec, string baseUri, HDT *hdt1, HDT *hdt2, Pro
 
         dictionaryCat = new FourSectionDictionaryCat(spec);
         dictionaryCat->cat(hdt1->getDictionary(), hdt2->getDictionary());
+        delete this->dictionary;
         this->dictionary = dictionaryCat;
         triplesCat = new BitmapTriplesCat(spec);
         triplesCat->cat(hdt1->getTriples(), hdt2->getTriples(), dictionaryCat, listener);
+        delete this->triples;
         this->triples = triplesCat;
         this->fillHeaderCat(baseUri);
     } catch (std::exception& e) {
@@ -26,6 +28,8 @@ HDTCat::HDTCat(HDTSpecification &spec, string baseUri, HDT *hdt1, HDT *hdt2, Pro
     }
 
 }
+
+HDTCat::~HDTCat() {}
 
 void HDTCat::fillHeaderCat(const string& baseUri) {
     string formatNode = "_:format";

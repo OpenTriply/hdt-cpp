@@ -7,10 +7,18 @@ using namespace std;
 namespace hdt {
 
 FourSectionDictionaryCat::FourSectionDictionaryCat(HDTSpecification& spec)
-        : FourSectionDictionary(spec)
 {
+    delete subjects;
+    subjects = nullptr;
+    delete predicates;
+    predicates = nullptr;
+    delete objects;
+    objects = nullptr;
+    delete shared;
+    shared = nullptr;
 
     /// Set blocksize if specified in spec file.
+    blocksize = 16;
     string blockSizeStr = "";
     try {
         blockSizeStr = spec.get("dict.block.size");
@@ -23,7 +31,17 @@ FourSectionDictionaryCat::FourSectionDictionaryCat(HDTSpecification& spec)
     }
 }
 
-FourSectionDictionaryCat::~FourSectionDictionaryCat() {}
+FourSectionDictionaryCat::~FourSectionDictionaryCat() {
+    delete mappingS1;
+    delete mappingS2;
+    delete mappingP1;
+    delete mappingP2;
+    delete mappingO1;
+    delete mappingO2;
+    delete mappingSh1;
+    delete mappingSh2;
+    delete mappingS;
+}
 
 void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
 {
@@ -79,8 +97,6 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     mappingS1->set(nsmit->getMapping1(), CAT_SUBJECTS);
     mappingS2->set(nsmit->getMapping2(), CAT_SUBJECTS);
     delete nsmit;
-    delete commonSubject1;
-    delete commonSubject2;
 
     //// Step 3: Merge object section ////
     size_t sizeO1 = dict1->getObjects()->getNumberOfElements();
@@ -116,8 +132,6 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     mappingO1->set(nsmit->getMapping1(), CAT_OBJECTS);
     mappingO2->set(nsmit->getMapping2(), CAT_OBJECTS);
     delete nsmit;
-    delete commonObject1;
-    delete commonObject2;
 
     //// Step 4: Merge shared section ////
     //    CatCommon* common = new CatCommon(dict1->getSubjects(), dict2->getObjects());

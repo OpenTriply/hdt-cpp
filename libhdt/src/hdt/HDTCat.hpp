@@ -16,6 +16,7 @@ private:
     BitmapTriplesCat *triplesCat;
 public:
     HDTCat(HDTSpecification &spec, string baseUri, HDT *hdt1, HDT *hdt2, ProgressListener *listener);
+    ~HDTCat();
     void fillHeaderCat(const string& baseUri);
 };
 
