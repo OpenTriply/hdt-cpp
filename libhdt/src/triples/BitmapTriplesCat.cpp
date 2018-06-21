@@ -178,7 +178,10 @@ size_t BitmapTriplesIteratorCat::mapIdSection(size_t id, CatMapping* catMappingS
             return catMapping->getMapping(id - catMappingShared->getSize() - 1);
         }
         else {
-            return catMapping->getMapping(id - catMappingShared->getSize() - 1) + dictionaryCat->getShared()->getNumberOfElements();
+            IteratorUCharString *shared = dictionaryCat->getShared();
+            size_t ret = catMapping->getMapping(id - catMappingShared->getSize() - 1) + shared->getNumberOfElements();
+            delete shared;
+            return ret;
         }
     }
 }
