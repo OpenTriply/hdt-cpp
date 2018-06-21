@@ -357,8 +357,9 @@ size_t NotSharedMergeIterator::getNumberOfElements()
     return num;
 }
 
-void NotSharedMergeIterator::freeStr(unsigned char* /*ptr*/)
+void NotSharedMergeIterator::freeStr(unsigned char* ptr)
 {
+    delete [] ptr;
 }
 
 vector<pair<size_t, size_t> > NotSharedMergeIterator::getMapping1()
@@ -725,8 +726,9 @@ size_t SharedMergeIterator::getNumberOfElements()
     return num;
 }
 
-void SharedMergeIterator::freeStr(unsigned char* /*ptr*/)
+void SharedMergeIterator::freeStr(unsigned char* ptr)
 {
+    delete [] ptr;
 }
 
 vector<pair<size_t, size_t> > SharedMergeIterator::getMapping1()
