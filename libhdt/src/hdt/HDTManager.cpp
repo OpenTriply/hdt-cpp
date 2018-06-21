@@ -86,6 +86,10 @@ HDT *HDTManager::catHDT(const char *hdt1, const char *hdt2, const char *baseUri,
 	HDT *mapHDT1 = mapHDT(hdt1, listener);
 	HDT *mapHDT2 = mapHDT(hdt2, listener);
 	HDTCat *hdtcat = new HDTCat(spec, baseUri, mapHDT1, mapHDT2, listener);
+
+	delete mapHDT1;
+	delete mapHDT2;
+
 	return hdtcat;
 }
 
