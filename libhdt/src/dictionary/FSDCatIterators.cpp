@@ -10,12 +10,18 @@ CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2)
         , count1(0)
         , count2(0)
         , commonNum(0)
+        , prev1(nullptr)
+        , prev2(nullptr)
 {
     if (it1->hasNext()) {
-        list.push_back(make_pair((size_t)1, it1->next()));
+        prev1 = it1->next();
+        ///cout << "prev1: " << prev1 << endl;
+        list.push_back(make_pair((size_t)1, prev1));
     }
     if (it2->hasNext()) {
-        list.push_back(make_pair((size_t)2, it2->next()));
+        prev2 = it2->next();
+        ///cout << "prev2: " << prev2 << endl;
+        list.push_back(make_pair((size_t)2, prev2));
     }
 
     helpNext();
@@ -34,6 +40,9 @@ bool CatCommon::hasNext()
 
 pair<size_t, size_t> CatCommon::next()
 {
+    delete [] this->next_string;
+    this->next_string = nullptr;
+
     pair<size_t, size_t> r = make_pair(next_t.first, next_t.second);
     has_next = false;
     helpNext();
@@ -60,14 +69,21 @@ void CatCommon::helpNext()
             if (s1.compare(s2) > 0) {
                 iter_swap(list.begin(), list.begin() + 1);
             }
-            // If pair has common terms:
+            // If pairs have common terms:
             if (!s1.compare(s2)) {
                 has_next = true;
                 next_t = make_pair(count1, count2);
                 next_string = list[0].second;
+                if (list[1].second != nullptr) {
+                    delete [] list[1].second;
+                    list[1].second = nullptr;
+                }
+
                 bool remove = false;
                 if (it1->hasNext()) {
-                    list[0] = make_pair(1, it1->next());
+                    prev1 = it1->next();
+                    ///cout << "prev1: " << prev1 << endl;
+                    list[0] = make_pair(1, prev1);
                     count1++;
                 }
                 else {
@@ -76,18 +92,32 @@ void CatCommon::helpNext()
                 }
 
                 if (it2->hasNext()) {
+                    prev2 = it2->next();
+                    ///cout << "prev2: " << prev2 << endl;
+                    remove ? (list[0] = make_pair(2, prev2)) : (list[1] = make_pair(2, prev2));
                     count2++;
-                    remove ? (list[0] = make_pair(2, it2->next())) : (list[1] = make_pair(2, it2->next()));
                 }
                 else {
+                    if(list[0].second != nullptr) {
+                        delete[] list[0].second;
+                        list[0].second = nullptr;
+                    }
                     list.erase(list.begin());
+
+                    ///cout << "prev1: " << prev1 << endl;
                 }
                 break;
             }
             else {
                 if (list[0].first == 1) {
+                    if(prev1 != nullptr) {
+                        delete [] prev1;
+                        prev1 = nullptr;
+                    }
                     if (it1->hasNext()) {
-                        list[0] = make_pair(1, it1->next());
+                        prev1 = it1->next();
+                        ///cout << "prev1: " << prev1 << endl;
+                        list[0] = make_pair(1, prev1);
                         count1++;
                     }
                     else {
@@ -95,9 +125,15 @@ void CatCommon::helpNext()
                     }
                 }
                 else {
+                    if(prev2 != nullptr) {
+                        delete [] prev2;
+                        prev2 = nullptr;
+                    }
                     if (it2->hasNext()) {
+                        prev2 = it2->next();
+                        ///cout << "prev2: " << prev2 << endl;
+                        list[0] = make_pair(2, prev2);
                         count2++;
-                        list[0] = make_pair(2, it2->next());
                     }
                     else {
                         list.erase(list.begin());
@@ -106,6 +142,7 @@ void CatCommon::helpNext()
             }
         }
         else if (list.size() == 1) {
+            delete [] list[0].second;
             list.erase(list.begin());
         }
     }
@@ -234,8 +271,14 @@ NotSharedMergeIterator::~NotSharedMergeIterator()
     delete it2;
     delete it1common;
     delete it2common;
-    if(string1 != NULL) delete string1;
-    if(string2 != NULL) delete string2;
+//    if(string1 != NULL) {
+//        delete [] string1;
+//        string1 = nullptr;
+//    }
+//    if(string2 != NULL) {
+//        delete [] string2;
+//        string2 = null
+//    }
 }
 
 bool NotSharedMergeIterator::hasNext()
@@ -272,6 +315,10 @@ unsigned char* NotSharedMergeIterator::next()
         }
     }
     else if (prevString == -1) {
+        if(string2 != NULL) {
+            freeStr(string2);
+        }
+
         string1 = NULL;
         if (it1->hasNext()) {
             string1 = it1->next();
@@ -297,6 +344,7 @@ unsigned char* NotSharedMergeIterator::next()
             count2++;
         }
         else {
+
             retString = string1;
             prevString = -1;
             mapping1.push_back(make_pair(count1, pos+1));
@@ -326,8 +374,14 @@ unsigned char* NotSharedMergeIterator::next()
 
 void NotSharedMergeIterator::skip()
 {
+    bool flag = false;
     if (canSkip1) {
         while (skipSection1 == count1) {
+            if(flag && string1 != NULL) {
+                //cout << "Deleting in skip(): " << string1 << endl;
+                freeStr(string1);
+                string1 = NULL;
+            }
             if (it1->hasNext()) {
                 string1 = it1->next();
             }
@@ -338,10 +392,17 @@ void NotSharedMergeIterator::skip()
             if (it1common->hasNext()) {
                 skipSection1 = it1common->next();
             }
+            if(!flag) flag=true;
         }
     }
+    flag = false;
     if (canSkip2) {
         while (skipSection2 == count2) {
+            if(flag && string2 != NULL) {
+                //cout << "Deleting in skip(): " << string2 << endl;
+                freeStr(string2);
+                string2 = NULL;
+            }
             if (it2->hasNext()) {
                 string2 = it2->next();
             }
@@ -352,6 +413,8 @@ void NotSharedMergeIterator::skip()
             if (it2common->hasNext()) {
                 skipSection2 = it2common->next();
             }
+
+            if(!flag) flag=true;
         }
     }
 }
@@ -481,6 +544,9 @@ unsigned char* SharedMergeIterator::next()
         }
     }
     else if (prevString == -1) {
+        if(string2 != NULL) {
+            freeStr(string2);
+        }
         string1 = NULL;
         if (it1->hasNext()) {
             string1 = it1->next();

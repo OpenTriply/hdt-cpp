@@ -17,7 +17,7 @@ private:
     bool has_next, counted;
     size_t count1, count2, commonNum;
     pair<size_t, size_t> next_t;
-    unsigned char* next_string;
+    unsigned char* next_string, *prev1, *prev2;
     pair<unsigned char*, pair<size_t, size_t> > next_s;
 
 public:

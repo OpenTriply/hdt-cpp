@@ -89,7 +89,12 @@ void BitmapTriplesIteratorCat::goToStart()
 
 size_t BitmapTriplesIteratorCat::estimatedNumResults()
 {
-    return hdt1->searchAll()->estimatedNumResults() + hdt2->searchAll()->estimatedNumResults();
+    IteratorTripleID *it1 = hdt1->searchAll();
+    IteratorTripleID *it2 = hdt2->searchAll();
+    size_t num = it1->estimatedNumResults() + it2->estimatedNumResults();
+    delete it1;
+    delete it2;
+    return num;
 }
 
 ResultEstimationType BitmapTriplesIteratorCat::numResultEstimation()

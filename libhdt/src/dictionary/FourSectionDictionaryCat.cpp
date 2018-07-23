@@ -52,6 +52,7 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     //    delete commonP1P2;
     //    size_t numPredicates = dict1->getNpredicates() + dict2->getNpredicates() - numCommonPredicates;
     //    cout << "Final number of predicates: " << numPredicates << endl;
+    cout << "Predicates" << endl;
     NotSharedMergeIterator* nsmit = new NotSharedMergeIterator(dict1->getPredicates(), dict2->getPredicates(),
                                                                new CatIterator(), new CatIterator());
     predicates = new csd::CSD_PFC(nsmit, blocksize);
@@ -63,8 +64,13 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     delete nsmit;
 
     /// Step 2: Merge subject sections
-    size_t sizeS1 = dict1->getSubjects()->getNumberOfElements();
-    size_t sizeS2 = dict2->getSubjects()->getNumberOfElements();
+    cout << "Subjects" << endl;
+    IteratorUCharString *temp1 = dict1->getSubjects();
+    IteratorUCharString *temp2 = dict2->getSubjects();
+    size_t sizeS1 = temp1->getNumberOfElements();
+    size_t sizeS2 = temp2->getNumberOfElements();
+    delete temp1;
+    delete temp2;
     //    // Case 1: Subjects of dict1 ~ Objects and Shared of dict2
     //    CatIterator* commonSubject1 = new CatIterator(new CatCommon(dict1->getSubjects(), dict2->getShared()),
     //                                                  new CatCommon(dict1->getSubjects(), dict2->getObjects()));
@@ -82,6 +88,16 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     //    delete commonSubject2;
     //    delete commonS1S2;
     //    cout << "Final number of subjects: " << numSubjects << endl;
+// TODO: delete following
+//    cout << "Getting Subjects" << endl;
+//    CatCommon* lo = new CatCommon(dict1->getSubjects(), dict2->getObjects());
+//    while(lo->hasNext()) {
+//        unsigned char * a = lo->next();
+//        delete a;
+//    }
+//    delete lo;
+//    cout << "=========\n\n\n" << endl;
+
 
     /// Get common terms: [1] Dict1 subjects and [2] Dict2 shared and objects.
     CatIterator* commonSubject1 = new CatIterator(new CatCommon(dict1->getSubjects(), dict2->getShared()),
@@ -99,8 +115,13 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     delete nsmit;
 
     //// Step 3: Merge object section ////
-    size_t sizeO1 = dict1->getObjects()->getNumberOfElements();
-    size_t sizeO2 = dict2->getObjects()->getNumberOfElements();
+    cout << "Objects" << endl;
+    temp1 = dict1->getObjects();
+    temp2 = dict2->getObjects();
+    size_t sizeO1 = temp1->getNumberOfElements();
+    size_t sizeO2 = temp2->getNumberOfElements();
+    delete temp1;
+    delete temp2;
 
     //    // Case 1: Objects of dict1 ~ Subjects and Shared of dict2
     //    CatIterator* commonObject1 = new CatIterator(new CatCommon(dict1->getObjects(), dict2->getShared()),
@@ -134,6 +155,7 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     delete nsmit;
 
     //// Step 4: Merge shared section ////
+    cout << "Shared" << endl;
     //    CatCommon* common = new CatCommon(dict1->getSubjects(), dict2->getObjects());
     //    size_t numCommonS1O2 = common->getCommonNum();
     //    delete common;
@@ -151,10 +173,18 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
 
     SharedMergeIterator* smit = new SharedMergeIterator(dict1, dict2);
     shared = new csd::CSD_PFC(smit, blocksize);
+    cout << "Done" << endl;
 
     /// Store mappings.
-    mappingSh1 = new CatMapping(dict1->getShared()->getNumberOfElements());
-    mappingSh2 = new CatMapping(dict2->getShared()->getNumberOfElements());
+    temp1 = dict1->getShared();
+    temp2 = dict2->getShared();
+
+    mappingSh1 = new CatMapping(temp1->getNumberOfElements());
+    mappingSh2 = new CatMapping(temp2->getNumberOfElements());
+
+    delete temp1;
+    delete temp2;
+
     mappingSh1->set(smit->getMapping1(), CAT_SHARED);
     mappingSh2->set(smit->getMapping2(), CAT_SHARED);
     mappingS1->set(smit->getMappingS1Sh(), CAT_SHARED);
