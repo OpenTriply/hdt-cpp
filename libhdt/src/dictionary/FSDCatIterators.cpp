@@ -264,15 +264,10 @@ NotSharedMergeIterator::~NotSharedMergeIterator()
     delete it1common;
     delete it2common;
 
-    if(prevString == 1 && string2)
+    if((prevString == 1 || prevString == -1) && string2)
         freeStr(string2);
     else if(prevString == 2 && string1)
         freeStr((string1));
-    else if(prevString == -1) {
-        if(string2)
-            freeStr(string2);
-
-    }
 }
 
 bool NotSharedMergeIterator::hasNext()
@@ -371,14 +366,15 @@ void NotSharedMergeIterator::skip()
     bool flag = false;
     if (canSkip1) {
         while (skipSection1 == count1) {
-            if((flag || count1 == 0 ) && string1 != NULL) {
-                freeStr(string1);
+            if((flag || count1 == 0) && string1 != NULL) {
+                this->freeStr(string1);
                 string1 = NULL;
             }
             if (it1->hasNext()) {
                 string1 = it1->next();
                 if(prevString == 1) {
                     this->freeStr(string1);
+                    string1 = NULL;
                 }
             }
             else {
@@ -395,7 +391,7 @@ void NotSharedMergeIterator::skip()
     if (canSkip2) {
         while (skipSection2 == count2) {
             if((flag || count2 == 0) && string2 != NULL) {
-                freeStr(string2);
+                this->freeStr(string2);
                 string2 = NULL;
             }
 
@@ -408,6 +404,7 @@ void NotSharedMergeIterator::skip()
                 string2 = it2->next();
                 if(prevString == 2) {
                     this->freeStr(string2);
+                    string2 = NULL;
                 }
             }
             else {
@@ -513,6 +510,11 @@ SharedMergeIterator::~SharedMergeIterator()
     delete itCommonShared1Objects2;
     delete itCommonShared2Subjects1;
     delete itCommonShared2Objects1;
+
+    if((prevString == 1 || prevString == -1) && string2)
+        freeStr(string2);
+    else if(prevString == 2 && string1)
+        freeStr((string1));
 }
 
 bool SharedMergeIterator::hasNext()
