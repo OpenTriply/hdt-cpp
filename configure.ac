@@ -97,5 +97,6 @@ AC_CONFIG_FILES([
   libcds/cds.pc
   libcds/Makefile
   libcds/tests/Makefile
+  libhdt/benchmarks/src/Makefile
 ])
 AC_OUTPUT
