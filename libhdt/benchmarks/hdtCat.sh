@@ -44,10 +44,8 @@ index=0
 for directory in ${data%%/}/*; do
     i=0
     files=[]
-    for file in ${directory%%/}/*; do
-        files[i]=$file
-        i+=1
-    done
+    files[0]=`find ${directory} -name 'input1*'`
+    files[1]=`find ${directory} -name 'input2*'`
 
     echo "running hdtCat for ${files[0]} and ${files[1]}"
 
@@ -67,7 +65,6 @@ for directory in ${data%%/}/*; do
 
     echo "Output of merging ${files[0]} and ${files[1]}" >> $logError
     out=`src/HDTCat ${files[0]} ${files[1]} $output 2>> $logError`
-    #echo "$out" |& tee -a tee $logError
     echo >> "$logError"
 
     # Store HDTCat generation time usage to an array
@@ -82,16 +79,24 @@ for directory in ${data%%/}/*; do
     kill ${topPid}
     maxMemUse=`./getMaxMemFromTop.sh ${memFile}`
 
-    a1=`echo ${arr_usage1[*]} | grep -oP '\(\K[^\)]+'`
-    a2=`echo ${arr_usage2[*]} | grep -oP '\(\K[^\)]+'`
+#    a1=`echo ${arr_usage1[*]} | grep -oP '\(\K[^\)]+'`
+#    a2=`echo ${arr_usage2[*]} | grep -oP '\(\K[^\)]+'`
 
-    row="`basename ${files[0]}`""\t""`basename ${files[1]}`""\t""`basename $output`""\t""$lines""\t"
+    c1=`echo ${arr_usage1[*]} | grep -oP 'Clock\(\K[^\)]+'`
+    u1=`echo ${arr_usage1[*]} | grep -oP 'User\(\K[^\)]+'`
+    s1=`echo ${arr_usage1[*]} | grep -oP 'System\(\K[^\)]+'`
 
-    append=`echo "$a1" | tr "\n" "\t"`
-    row+="$append"
+    c2=`echo ${arr_usage2[*]} | grep -oP 'Clock\(\K[^\)]+'`
+    u2=`echo ${arr_usage2[*]} | grep -oP 'User\(\K[^\)]+'`
+    s2=`echo ${arr_usage2[*]} | grep -oP 'System\(\K[^\)]+'`
 
-    append=`echo "$a2" | tr "\n" "\t"`
-    row+="$append""$maxMemUse"
+    row="`basename ${files[0]}`""\t""`basename ${files[1]}`""\t""`basename $output`""\t""$lines""\t""$c1""\t""$u1""\t""$s1""\t""$c2""\t""$u2""\t""$s2""\t""$maxMemUse"
+
+#    append=`echo "$a1" | tr "\n" "\t"`
+#    row+="$append"
+#
+#    append=`echo "$a2" | tr "\n" "\t"`
+#    row+="$append""$maxMemUse"
 
     echo -e "$row" >> "$resultsFile"
     echo "Done"
