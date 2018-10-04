@@ -818,7 +818,6 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                         removed = true;
                     }
                     if (it2temp->hasNext()) {
-                        count2++;
                         delete[] list[1].second;
                         list[1] = make_pair((size_t) 2, it2temp->next());
                         count2++;
