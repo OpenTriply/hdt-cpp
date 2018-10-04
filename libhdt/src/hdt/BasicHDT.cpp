@@ -45,6 +45,7 @@
 #include "../dictionary/PlainDictionary.hpp"
 #include "../dictionary/KyotoDictionary.hpp"
 #include "../dictionary/FourSectionDictionary.hpp"
+#include "../dictionary/FourSectionDictionaryCat.hpp"
 
 #ifdef HAVE_CDS
 #include "../dictionary/LiteralDictionary.hpp"
@@ -183,6 +184,20 @@ IteratorTripleString* BasicHDT::search(const char* subject,	const char* predicat
 	return new IteratorTripleString();
 }
 
+void BasicHDT::cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, ProgressListener *listener) {
+	// Make sure that URI starts and ends with <>
+	if(baseUri.at(0)!='<')
+		baseUri = '<'+baseUri;
+	if(baseUri.at(baseUri.length()-1)!='>')
+		baseUri.append(">");
+
+	cout << "Generating dictionary" << endl;
+	cout << location << endl;
+	FourSectionDictionaryCat *dictionaryCat = new FourSectionDictionaryCat(location);
+	dictionaryCat->cat(hdt1->getDictionary(), hdt2->getDictionary(), listener);
+	delete dictionaryCat;
+
+}
 
 ModifiableDictionary* BasicHDT::getLoadDictionary() {
 	return new PlainDictionary(spec);

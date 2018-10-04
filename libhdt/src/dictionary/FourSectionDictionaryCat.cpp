@@ -1,13 +1,28 @@
-
+#include <unistd.h>
 #include "FourSectionDictionaryCat.hpp"
-#include "../libdcs/CSD_PFC.h"
+#include <HDTVocabulary.hpp>
+#include "../libdcs/VByte.h"
+#include "../util/crc8.h"
+#include "../util/crc32.h"
 
 using namespace std;
 
 namespace hdt {
 
-FourSectionDictionaryCat::FourSectionDictionaryCat(HDTSpecification& spec)
+bool sortBySec(const pair<size_t, unsigned char *> &a, const pair<size_t, unsigned char *> &b) {
+    string s1 = string(reinterpret_cast<char *>(a.second));
+    string s2 = string(reinterpret_cast<char *>(b.second));
+    return (s1.compare(s2) < 0);
+}
+
+void FourSectionDictionaryCat::freeStr(unsigned char *s) {
+    delete[] s;
+    this->str = nullptr;
+}
+
+FourSectionDictionaryCat::FourSectionDictionaryCat(const char *location) : location(location)
 {
+    // Delete unnecessary allocated memory.
     delete subjects;
     subjects = nullptr;
     delete predicates;
@@ -29,172 +44,308 @@ FourSectionDictionaryCat::FourSectionDictionaryCat(HDTSpecification& spec)
     if (blockSizeStr != "") {
         blocksize = atoi((const char*)blockSizeStr.c_str());
     }
+
+    // Attributes that will be created dynamically:
+    mappingS1 = nullptr;
+    mappingS2 = nullptr;
+    mappingP1 = nullptr;
+    mappingP2 = nullptr;
+    mappingO1 = nullptr;
+    mappingO2 = nullptr;
+    mappingSh1 = nullptr;
+    mappingSh2 = nullptr;
+    mappingS = nullptr;
+
+    str = nullptr;
+    text = nullptr;
+
+    blocks = nullptr;
+
+    it1temp = nullptr;
+    it2temp = nullptr;
+
+    itCommonSubjects1Objects2 = nullptr;
+    itCommonObjects1Subjects2 = nullptr;
+    itCommonShared1Subjects2 = nullptr;
+    itCommonShared1Objects2 = nullptr;
+    itCommonShared2Subjects1 = nullptr;
+    itCommonShared2Objects1 = nullptr;
 }
 
 FourSectionDictionaryCat::~FourSectionDictionaryCat() {
-    delete mappingS1;
-    delete mappingS2;
-    delete mappingP1;
-    delete mappingP2;
-    delete mappingO1;
-    delete mappingO2;
-    delete mappingSh1;
-    delete mappingSh2;
-    delete mappingS;
+    if(mappingS1 != nullptr)
+        delete mappingS1;
+    if(mappingS2 != nullptr)
+        delete mappingS2;
+    if(mappingP1 != nullptr)
+        delete mappingP1;
+    if(mappingP2 != nullptr)
+        delete mappingP2;
+    if(mappingO1 != nullptr)
+        delete mappingO1;
+    if(mappingO2 != nullptr)
+        delete mappingO2;
+    if(mappingSh1 != nullptr)
+        delete mappingSh1;
+    if(mappingSh2 != nullptr)
+        delete mappingSh2;
+    if(mappingS != nullptr)
+        delete mappingS;
+
+    if(str != nullptr)
+        delete str;
+    if(text != nullptr)
+        free(text);
+
+    if(blocks != nullptr)
+        delete blocks;
+
+    if(it1temp != nullptr)
+        delete it1temp;
+    if(it2temp != nullptr)
+        delete it2temp;
+
+    if(itCommonSubjects1Objects2 != nullptr)
+        delete itCommonSubjects1Objects2;
+    if(itCommonObjects1Subjects2 != nullptr)
+        delete itCommonObjects1Subjects2;
+    if(itCommonShared1Subjects2 != nullptr)
+        delete itCommonShared1Subjects2;
+    if(itCommonShared1Objects2 != nullptr)
+        delete itCommonShared1Objects2;
+    if(itCommonShared2Subjects1 != nullptr)
+        delete itCommonShared2Subjects1;
+    if(itCommonShared2Objects1 != nullptr)
+        delete itCommonShared2Objects1;
 }
 
-void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
+void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, ProgressListener* listener)
 {
+    cout << "PREDICATES-------------------" << endl;
+    // Construct predicate mappings.
+    mappingP1 = new CatMapping(location, "P1", dict1->getNpredicates());
+    mappingP2 = new CatMapping(location, "P2", dict2->getNpredicates());
 
-    /// Step 1: Merge predicate sections
-    //    CatCommon* commonP1P2 = new CatCommon(dict1->getPredicates(), dict2->getPredicates());
-    //    size_t numCommonPredicates = commonP1P2->getCommonNum();
-    //    delete commonP1P2;
-    //    size_t numPredicates = dict1->getNpredicates() + dict2->getNpredicates() - numCommonPredicates;
-    //    cout << "Final number of predicates: " << numPredicates << endl;
-    cout << "Predicates" << endl;
-    NotSharedMergeIterator* nsmit = new NotSharedMergeIterator(dict1->getPredicates(), dict2->getPredicates(),
-                                                               new CatIterator(), new CatIterator());
-    predicates = new csd::CSD_PFC(nsmit, blocksize);
-    /// Store mappings.
-    mappingP1 = new CatMapping(dict1->getNpredicates());
-    mappingP2 = new CatMapping(dict2->getNpredicates());
-    mappingP1->set(nsmit->getMapping1(), CAT_PREDICATES);
-    mappingP2->set(nsmit->getMapping2(), CAT_PREDICATES);
-    delete nsmit;
+    // Calculate the total number of output predicates.
+    CatCommon* commonP1P2 = new CatCommon(dict1->getPredicates(), dict2->getPredicates());
+    size_t numCommonPredicates = 0;
+    while(commonP1P2->hasNext()) {
+        commonP1P2->next();
+        numCommonPredicates++;
+    }
+    delete commonP1P2;
 
-    /// Step 2: Merge subject sections
-    cout << "Subjects" << endl;
-    IteratorUCharString *temp1 = dict1->getSubjects();
-    IteratorUCharString *temp2 = dict2->getSubjects();
-    size_t sizeS1 = temp1->getNumberOfElements();
-    size_t sizeS2 = temp2->getNumberOfElements();
-    delete temp1;
-    delete temp2;
-    //    // Case 1: Subjects of dict1 ~ Objects and Shared of dict2
-    //    CatIterator* commonSubject1 = new CatIterator(new CatCommon(dict1->getSubjects(), dict2->getShared()),
-    //                                                  new CatCommon(dict1->getSubjects(), dict2->getObjects()));
-    //    size_t numCommonSubject1 = commonSubject1->getCommonNum();
-    //    // Case 2: Subjects of dict2 ~ Objects and Shared of dict1
-    //    CatIterator* commonSubject2 = new CatIterator(new CatCommon(dict2->getSubjects(), dict1->getShared()),
-    //                                                  new CatCommon(dict2->getSubjects(), dict1->getObjects()));
-    //    size_t numCommonSubject2 = commonSubject2->getCommonNum();
-    //    // Case 3: Subjects of dict1 ~ Subjects of dict2
-    //    CatCommon* commonS1S2 = new CatCommon(dict1->getSubjects(), dict2->getSubjects());
-    //    size_t numCommonSubjects = commonS1S2->getCommonNum();
-    //
-    //    size_t numSubjects = sizeS1 + sizeS2 - numCommonSubjects - numCommonSubject1 - numCommonSubject2;
-    //    delete commonSubject1;
-    //    delete commonSubject2;
-    //    delete commonS1S2;
-    //    cout << "Final number of subjects: " << numSubjects << endl;
-// TODO: delete following
-//    cout << "Getting Subjects" << endl;
-//    CatCommon* lo = new CatCommon(dict1->getSubjects(), dict2->getObjects());
-//    while(lo->hasNext()) {
-//        unsigned char * a = lo->next();
-//        delete a;
-//    }
-//    delete lo;
-//    cout << "=========\n\n\n" << endl;
+    size_t numPredicates = dict1->getNpredicates() + dict2->getNpredicates() - numCommonPredicates;
+
+    // Create predicate section.
+    catSection(numPredicates, CAT_PREDICATES, dict1->getPredicates(), dict2->getPredicates(),
+               new CatIterator(), new CatIterator(), mappingP1, mappingP2, listener);
 
 
-    /// Get common terms: [1] Dict1 subjects and [2] Dict2 shared and objects.
-    CatIterator* commonSubject1 = new CatIterator(new CatCommon(dict1->getSubjects(), dict2->getShared()),
+    cout << "SUBJECTS---------------------" << endl;
+    // Get subject number, excluding shared
+    size_t sizeS1 = dict1->getNsubjects() - dict1->getNshared();
+    size_t sizeS2 = dict2->getNsubjects() - dict2->getNshared();
+
+    // Construct subject mappings.
+    mappingS1 = new CatMapping(location, "S1", sizeS1);
+    mappingS2 = new CatMapping(location, "S2", sizeS2);
+
+    // CASE 1: Find common terms between subjects of dict1 and objects/shared of dict2.
+    CatIterator *commonSubject1 = new CatIterator(new CatCommon(dict1->getSubjects(), dict2->getShared()),
                                                   new CatCommon(dict1->getSubjects(), dict2->getObjects()));
-    /// Get common terms: [1] Dict2 subjects and [2] Dict1 shared and objects.
+
+    size_t numCommonSubject1Hdt2 = 0;
+    while(commonSubject1->hasNext()){
+        commonSubject1->next();
+        numCommonSubject1Hdt2++;
+    }
+    delete commonSubject1;
+
+    // CASE 2: Find commond terms between subjects of dict2 and objects/shared of dict1.
     CatIterator* commonSubject2 = new CatIterator(new CatCommon(dict2->getSubjects(), dict1->getShared()),
                                                   new CatCommon(dict2->getSubjects(), dict1->getObjects()));
-    nsmit = new NotSharedMergeIterator(dict1->getSubjects(), dict2->getSubjects(), commonSubject1, commonSubject2);
-    subjects = new csd::CSD_PFC(nsmit, blocksize);
-    /// Store mappings.
-    mappingS1 = new CatMapping(sizeS1);
-    mappingS2 = new CatMapping(sizeS2);
-    mappingS1->set(nsmit->getMapping1(), CAT_SUBJECTS);
-    mappingS2->set(nsmit->getMapping2(), CAT_SUBJECTS);
-    delete nsmit;
 
-    //// Step 3: Merge object section ////
-    cout << "Objects" << endl;
-    temp1 = dict1->getObjects();
-    temp2 = dict2->getObjects();
-    size_t sizeO1 = temp1->getNumberOfElements();
-    size_t sizeO2 = temp2->getNumberOfElements();
-    delete temp1;
-    delete temp2;
+    size_t numCommonSubject2Hdt1 = 0;
+    while(commonSubject2->hasNext()){
+        commonSubject2->next();
+        numCommonSubject2Hdt1++;
+    }
+    delete commonSubject2;
 
-    //    // Case 1: Objects of dict1 ~ Subjects and Shared of dict2
-    //    CatIterator* commonObject1 = new CatIterator(new CatCommon(dict1->getObjects(), dict2->getShared()),
-    //                                                 new CatCommon(dict1->getObjects(), dict2->getSubjects()));
-    //    size_t numCommonObject1 = commonObject1->getCommonNum();
-    //    // Case 2: Objects of dict2 ~ Subjects and Shared of dict1
-    //    CatIterator* commonObject2 = new CatIterator(new CatCommon(dict2->getObjects(), dict1->getShared()),
-    //                                                 new CatCommon(dict2->getObjects(), dict1->getSubjects()));
-    //    size_t numCommonObject2 = commonObject2->getCommonNum();
-    //    // Case 3: Objects of dict1 ~ Objects of dict2
-    //    CatCommon* commonO1O2 = new CatCommon(dict1->getObjects(), dict2->getObjects());
-    //    size_t numCommonObjects = commonO1O2->getCommonNum();
-    //    size_t numObjects = sizeO1 + sizeO2 - numCommonObjects - numCommonObject1 - numCommonObject2;
-    //    delete commonObject1;
-    //    delete commonObject2;
-    //    delete commonO1O2;
-    //    cout << "Final number of objects: " << numObjects << endl;
+    // CASE 3: Find common terms between subjects of dict1 and subjects of dict2
+    CatCommon* commonS1S2 = new CatCommon(dict1->getSubjects(), dict2->getSubjects());
+    size_t numCommonSubjects = 0;
+    while(commonS1S2->hasNext()) {
+        commonS1S2->next();
+        numCommonSubjects++;
+    }
+    delete commonS1S2;
 
+    // Calculate the total number of output subjects.
+    size_t numSubjects = sizeS1 + sizeS2 - numCommonSubjects - numCommonSubject1Hdt2 - numCommonSubject2Hdt1;
+
+    // Create subject section.
+    catSection(numSubjects, CAT_SUBJECTS, dict1->getSubjects(), dict2->getSubjects(),
+               new CatIterator(new CatCommon(dict1->getSubjects(), dict2->getShared()),
+                               new CatCommon(dict1->getSubjects(), dict2->getObjects())),
+               new CatIterator(new CatCommon(dict2->getSubjects(), dict1->getShared()),
+                               new CatCommon(dict2->getSubjects(), dict1->getObjects())),
+               mappingS1, mappingS2, listener);
+
+    cout << "OBJECTS----------------------" << endl;
+    // Get object number, excluding shared.
+    size_t sizeO1 = dict1->getNobjects() - dict1->getNshared();
+    size_t sizeO2 = dict2->getNobjects() - dict2->getNshared();
+
+    // Construct object mappings.
+    mappingO1 = new CatMapping(location, "O1", sizeO1);
+    mappingO2 = new CatMapping(location, "O2", sizeO2);
+
+    // CASE 1: Find common terms between objects of dict1 and subjects/shared of dict2
     CatIterator* commonObject1 = new CatIterator(new CatCommon(dict1->getObjects(), dict2->getShared()),
                                                  new CatCommon(dict1->getObjects(), dict2->getSubjects()));
+    size_t numCommonObject1Hdt2 = 0;
+    while(commonObject1->hasNext()) {
+        commonObject1->next();
+        numCommonObject1Hdt2++;
+    }
+    delete commonObject1;
+
+    // CASE 2: Find common terms between objects of dict2 and subjects/shared of dict1.
     CatIterator* commonObject2 = new CatIterator(new CatCommon(dict2->getObjects(), dict1->getShared()),
                                                  new CatCommon(dict2->getObjects(), dict1->getSubjects()));
-    nsmit = new NotSharedMergeIterator(dict1->getObjects(), dict2->getObjects(), commonObject1, commonObject2);
-    objects = new csd::CSD_PFC(nsmit, blocksize);
 
-    /// Store mappings.
-    mappingO1 = new CatMapping(sizeO1);
-    mappingO2 = new CatMapping(sizeO2);
-    mappingO1->set(nsmit->getMapping1(), CAT_OBJECTS);
-    mappingO2->set(nsmit->getMapping2(), CAT_OBJECTS);
-    delete nsmit;
+    size_t numCommonObject2Hdt1 = 0;
+    while(commonObject2->hasNext()) {
+        commonObject2->next();
+        numCommonObject2Hdt1++;
+    }
+    delete commonObject2;
 
-    //// Step 4: Merge shared section ////
-    cout << "Shared" << endl;
-    //    CatCommon* common = new CatCommon(dict1->getSubjects(), dict2->getObjects());
-    //    size_t numCommonS1O2 = common->getCommonNum();
-    //    delete common;
-    //
-    //    common = new CatCommon(dict1->getObjects(), dict2->getSubjects());
-    //    size_t numCommonO1S2 = common->getCommonNum();
-    //    delete common;
-    //
-    //    common = new CatCommon(dict1->getShared(), dict2->getShared());
-    //    size_t numCommonSh1Sh2 = common->getCommonNum();
-    //    delete common;
-    //
-    //    size_t numShared = dict1->getShared()->getNumberOfElements() + dict2->getShared()->getNumberOfElements() - numCommonSh1Sh2 + numCommonS1O2 + numCommonO1S2;
-    //    cout << "Final number of shared: " << numShared << endl;
+    // CASE 3: Find common terms between objects of dict1 and objects of dict2
+    CatCommon* commonO1O2 = new CatCommon(dict1->getObjects(), dict2->getObjects());
+    size_t numCommonObjects = 0;
+    while(commonO1O2->hasNext()) {
+        commonO1O2->next();
+        numCommonObjects++;
+    }
+    delete commonO1O2;
 
-    SharedMergeIterator* smit = new SharedMergeIterator(dict1, dict2);
-    shared = new csd::CSD_PFC(smit, blocksize);
-    cout << "Done" << endl;
+    // Calculate the total number of output objects.
+    size_t numObjects = sizeO1 + sizeO2 - numCommonObjects - numCommonObject1Hdt2 - numCommonObject2Hdt1;
 
-    /// Store mappings.
-    temp1 = dict1->getShared();
-    temp2 = dict2->getShared();
+    // Create object section.
+    catSection(numObjects, CAT_OBJECTS, dict1->getObjects(), dict2->getObjects(),
+               new CatIterator(new CatCommon(dict1->getObjects(), dict2->getShared()),
+                               new CatCommon(dict1->getObjects(), dict2->getSubjects())),
+               new CatIterator(new CatCommon(dict2->getObjects(), dict1->getShared()),
+                               new CatCommon(dict2->getObjects(), dict1->getSubjects())),
+               mappingO1, mappingO2, listener);
 
-    mappingSh1 = new CatMapping(temp1->getNumberOfElements());
-    mappingSh2 = new CatMapping(temp2->getNumberOfElements());
+    cout << "SHARED-----------------------" << endl;
 
-    delete temp1;
-    delete temp2;
+    // Find common between subjects of dict1 and objects of dict2.
+    CatCommon* common = new CatCommon(dict1->getSubjects(), dict2->getObjects());
+    size_t numCommonS1O2 = 0;
+    while(common->hasNext()) {
+        common->next();
+        numCommonS1O2++;
+    }
+    delete common;
 
-    mappingSh1->set(smit->getMapping1(), CAT_SHARED);
-    mappingSh2->set(smit->getMapping2(), CAT_SHARED);
-    mappingS1->set(smit->getMappingS1Sh(), CAT_SHARED);
-    mappingS2->set(smit->getMappingS2Sh(), CAT_SHARED);
-    mappingO1->set(smit->getMappingO1Sh(), CAT_SHARED);
-    mappingO2->set(smit->getMappingO2Sh(), CAT_SHARED);
-    delete smit;
+    // Find common between objects of dict1 and subjects of dict2.
+    common = new CatCommon(dict1->getObjects(), dict2->getSubjects());
+    size_t numCommonO1S2 = 0;
+    while(common->hasNext()) {
+        common->next();
+        numCommonO1S2++;
+    }
+    delete common;
+
+    // Find common terms between shared of dict1 and shared of dict2.
+    common = new CatCommon(dict1->getShared(), dict2->getShared());
+    size_t numCommonSh1Sh2 = 0;
+    while(common->hasNext()) {
+        common->next();
+        numCommonSh1Sh2++;
+    }
+    delete common;
+
+    // Calculate the total number of output shared terms.
+    size_t numShared = dict1->getNshared() + dict2->getNshared() - numCommonSh1Sh2 + numCommonS1O2 + numCommonO1S2;
+
+    // Create the shared section.
+    catShared(numShared, dict1, dict2, listener);
+
+    // Putting the sections together
+    string dictFileName = string(location) + "dictionary";
+    ofstream outFinal;
+    string inputFileName;
+    ifstream in;
+    ControlInformation *ci = nullptr;
+    try {
+
+        outFinal.open(dictFileName, ios::binary | ios::out | ios::trunc);
+        if(!outFinal.good()) {
+            throw std::runtime_error("Error opening file to save dictionary.");
+        }
+
+        ci = new ControlInformation();
+
+        //TODO: add more control information (?)
+        ci->setFormat(HDTVocabulary::DICTIONARY_TYPE_FOUR);
+        ci->setUint("mapping", MAPPING2);
+//        ci->setUint("sizeStrings", ???);
+        ci->save(outFinal);
+
+        const size_t buf_size = 100000;
+        vector<char> buffer(buf_size+1, 0);
+        for(int i=1; i<=4; i++) {
+            int j = i;
+
+            if(i == 4) {
+                j = 3;
+            } else if(j == 3) {
+                j = 4;
+            }
+
+            inputFileName = string(location) + "section" + to_string(j);
+            in.open(inputFileName, ios::binary | ios::in);
+            if(!in.good()) {
+                throw std::runtime_error("Error opening file to read section.");
+            }
+            while(!in.eof()) {
+                in.read(buffer.data(), buf_size);
+                streamsize s = ((in) ? buf_size : in.gcount());
+
+                buffer[s] = 0;
+                outFinal.write(buffer.data(), s);
+            }
+            in.close();
+            unlink(inputFileName.c_str());
+        }
+
+    } catch (std::exception& e) {
+        if(ci)
+            delete ci;
+        if(outFinal.is_open())
+            outFinal.close();
+        if(in.is_open()) {
+            in.close();
+            unlink(inputFileName.c_str());
+        }
+        cout << "ERROR: " << e.what() << endl;
+    }
+
+    // Clean-up
+    if(ci)
+        delete ci;
+    if(outFinal.is_open())
+        outFinal.close();
 
     /// Store inverse mappings.
-    mappingS = new CatMappingBack(subjects->getLength() + shared->getLength());
+    mappingS = new CatMappingBack(location, numSubjects+numShared);
     for (size_t i = 0; i < mappingSh1->getSize(); i++) {
         mappingS->set(mappingSh1->getMapping(i), i + 1, CAT_SUBJ1);
     }
@@ -204,34 +355,629 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2)
     }
 
     for (size_t i = 0; i < mappingS1->getSize(); i++) {
-        if (mappingS1->getType(i) == 1) {
+        if (mappingS1->getType(i) == CAT_SHARED) {
             mappingS->set(mappingS1->getMapping(i), (i + 1 + (size_t)dict1->getNshared()), CAT_SUBJ1);
         }
         else {
-            mappingS->set(mappingS1->getMapping(i) + (size_t)shared->getLength(), (i + 1 + (size_t)dict1->getNshared()), CAT_SUBJ1);
+            mappingS->set(mappingS1->getMapping(i) + numShared, (i + 1 + (size_t)dict1->getNshared()), CAT_SUBJ1);
         }
     }
 
     for (size_t i = 0; i < mappingS2->getSize(); i++) {
-        if (mappingS2->getType(i) == 1) {
+        if (mappingS2->getType(i) == CAT_SHARED) {
             mappingS->set(mappingS2->getMapping(i), (i + 1 + (size_t)dict2->getNshared()), CAT_SUBJ2);
         }
         else {
-            mappingS->set(mappingS2->getMapping(i) + (size_t)shared->getLength(), (i + 1 + (size_t)dict2->getNshared()), CAT_SUBJ2);
+            mappingS->set(mappingS2->getMapping(i) + numShared, (i + 1 + (size_t)dict2->getNshared()), CAT_SUBJ2);
         }
     }
+}
 
-    //    for (size_t i = 0; i < mappingS->getSize(); i++) {
-    //        if (mappingS->getMapping(i).size() == 2) {
-    //            cout << mappingS->getMapping(i)[0] << " " << mappingS->getMapping(i)[1] << endl;
-    //        }
-    //        else if (mappingS->getMapping(i).size() == 1) {
-    //            cout << mappingS->getMapping(i)[0] << endl;
-    //        }
-    //        else {
-    //            cout << "Nothing returned!" << endl;
-    //        }
-    //    }
+void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type, IteratorUCharString *it1,
+                                          IteratorUCharString *it2, hdt::CatIterator *it1common,
+                                          hdt::CatIterator *it2common, hdt::CatMapping *mappingHdt1,
+                                          hdt::CatMapping *mappingHdt2, ProgressListener *listener)
+{
+    size_t count1 = 0, count2 = 0;
+    ssize_t skipSection1 = -1, skipSection2 = -1;   //!< terms to be skipped.
+    string s1, s2;  //!< used for comparison.
+
+    size_t numBlocks = 0; //!< number of pfc buckets
+    size_t numElements = 0; //!< number of strings in the buckets
+    uint64_t bytes = 0; //!< total bytes of the buckets sequence
+    size_t capacity = sizeof(size_t)==8 ? 37 : 32; //!< capacity of pfc bucket
+
+    if(str != nullptr) freeStr(str);
+    size_t currentLength = 0;
+    string previousStr;
+
+    // Temporary file keeping the section,
+    string fileName = string(location) + "section" + to_string(type);
+    ofstream out;
+
+    // Vector of two pairs (id and string of term) to be compared.
+    vector <pair<size_t, unsigned char *>> list;
+
+    try {
+        if(text != nullptr) free(text);
+        uint64_t reservedSize = 1024;
+        text = (unsigned char*)malloc(reservedSize*sizeof(unsigned char));
+
+        seqloc = string(location) + "LogSequence2Disk" + to_string(type); //<! Filename for blocks.
+        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / 16);
+
+        if (numentries > 0) {
+            if (it1->hasNext()) {
+                list.push_back(make_pair((size_t) 1, it1->next()));
+            }
+            if (it2->hasNext()) {
+                list.push_back(make_pair((size_t) 2, it2->next()));
+            }
+            if (it1common->hasNext()) {
+                skipSection1 = it1common->next();
+            }
+            if (it2common->hasNext()) {
+                skipSection2 = it2common->next();
+            }
+
+            while (list.size() != 0) {
+                // TODO: Listener notify here
+                // Sort the two strings.
+                sort(list.begin(), list.end(), sortBySec);
+
+                bool skip = false; //!< Flag for skipping common terms
+                if (list[0].first == 1) {
+                    if (count1 == skipSection1) {
+                        skip = true;
+                        if (it1->hasNext()) {
+                            delete[] list[0].second;
+                            list[0].second = it1->next();
+                            count1++;
+                        } else {
+                            delete[] list[0].second;
+                            list.erase(list.begin());
+                        }
+                        if (it1common->hasNext()) {
+                            skipSection1 = it1common->next();
+                        }
+                    }
+                } else {
+                    if (count2 == skipSection2) {
+                        skip = true;
+                        if (it2->hasNext()) {
+                            delete[] list[0].second;
+                            list[0].second = it2->next();
+                            count2++;
+                        } else {
+                            delete[] list[0].second;
+                            list.erase(list.begin());
+                        }
+                        if (it2common->hasNext()) {
+                            skipSection2 = it2common->next();
+                        }
+                    }
+                }
+
+                if (skip == false) {
+                    if(str != nullptr) {
+                        delete[] str;
+                    }
+                    str = list[0].second;
+                    currentLength = strlen((char *) str);
+
+                    // TODO: (important for optimization) replace text with a buffer and a file.
+                    // TODO (continue'd) If buffer is filled, flush and store it to file.
+                    // Reallocate if PFC vocabulary exceeds the reserved size.
+                    if((bytes+currentLength+11) > reservedSize) {
+                        reservedSize = (bytes+currentLength+10)*2;
+                        text = (unsigned char *)realloc(text, reservedSize*sizeof(unsigned char));
+                    }
+
+                    if((numElements % blocksize) == 0) {
+                        blocks->push_back(bytes);
+                        numBlocks++;
+                        // The string is explicitly copied to the encoded sequence.
+                        strncpy((char*)(text+bytes), (char*)str, currentLength);
+                        bytes+=currentLength;
+                    }
+                    else {
+                        // Regular string
+
+                        // Calculate the length of the common prefix
+                        size_t delta = 0;
+                        unsigned char *prev = (unsigned char *)previousStr.c_str();
+                        size_t lstr1 = previousStr.length();
+                        size_t lstr2 = currentLength;
+                        size_t length = lstr1 < lstr2 ? lstr1 : lstr2;
+
+                        while( (delta<length) && (str[delta] == prev[delta])) {
+                            delta++;
+                        }
+
+                        // The prefix is differentially encoded
+                        bytes += csd::VByte::encode(text+bytes, delta);
+
+                        // The suffix is copied to the sequence
+                        strncpy((char*)(text+bytes), (char*)str+delta, currentLength-delta);
+                        bytes+=currentLength-delta;
+                    }
+
+                    // Add terminator of string.
+                    text[bytes] = '\0';
+                    bytes++;
+
+                    // Save previous
+                    previousStr.assign((char *)str);
+
+                    if(list.size() >= 2) {
+                        s1 = string(reinterpret_cast<char *>(list[0].second));
+                        s2 = string(reinterpret_cast<char *>(list[1].second));
+                    }
+                    if (list.size() >= 2 && s1.compare(s2) == 0) {
+                        bool removed = false;
+                        mappingHdt1->set(count1, numElements + 1, type);
+                        count1++;
+                        mappingHdt2->set(count2, numElements + 1, type);
+                        count2++;
+
+                        if (it1->hasNext()) {
+                            freeStr((list[0].second));
+                            list[0] = make_pair(1, it1->next());
+                        } else {
+                            freeStr((list[0].second));
+                            list.erase(list.begin());
+                            removed = true;
+                        }
+                        if (it2->hasNext()) {
+                            if (removed) {
+                                freeStr((list[0].second));
+                                list[0] = make_pair(2, it2->next());
+                            } else {
+                                delete[] list[1].second;
+                                list[1] = make_pair(2, it2->next());
+                            }
+                        } else {
+                            if (removed) {
+                                freeStr((list[0].second));
+                                list.erase(list.begin());
+                            } else {
+                                delete[] list[1].second;
+                                list.erase(list.begin() + 1);
+                            }
+                        }
+                    } else if (list[0].first == 1) {
+                        mappingHdt1->set(count1, numElements + 1, type);
+                        count1++;
+
+                        if (it1->hasNext()) {
+                            freeStr((list[0].second));
+                            list[0] = make_pair(1, it1->next());
+                        } else {
+                            freeStr((list[0].second));
+                            list.erase(list.begin());
+                        }
+                    } else if (list[0].first == 2) {
+                        mappingHdt2->set(count2, numElements + 1, type);
+                        count2++;
+
+                        if (it2->hasNext()) {
+                            freeStr((list[0].second));
+                            list[0] = make_pair(2, it2->next());
+                        } else {
+                            freeStr((list[0].second));
+                            list.erase(list.begin());
+                        }
+                    }
+
+                    // New string processed
+                    numElements++;
+                }
+            }
+        }
+
+        blocks->push_back(bytes);
+        text = (unsigned char *) realloc(text, bytes*sizeof(unsigned char));
+        blocks->reduceBits();
+
+        out.open(fileName, ios::binary | ios::out | ios::trunc);
+
+        if(!out.good()){
+            throw std::runtime_error("Error opening file to save dictionary section.");
+        }
+
+        CRC8 crch;
+        CRC32 crcd;
+        unsigned char buf[27]; //!< 9 bytes per VByte (max) * 3 values.
+
+        // Save type
+        unsigned char dicttype = csd::PFC;
+        crch.writeData(out, (unsigned char *)&dicttype, sizeof(dicttype));
+
+        // Save sizes
+        uint8_t pos = 0;
+        pos += csd::VByte::encode(&buf[pos], numentries);
+        pos += csd::VByte::encode(&buf[pos], bytes);
+        pos += csd::VByte::encode(&buf[pos], blocksize);
+
+        crch.writeData(out, buf, pos);
+        crch.writeCRC(out);
+
+        blocks->save(out);
+        delete blocks;
+        blocks = nullptr;
+
+        if(text) {
+            crcd.writeData(out, text, bytes);
+            free(text);
+            text = nullptr;
+        }
+        else {
+            assert(numentries==0);
+            assert(bytes==0);
+        }
+
+        crcd.writeCRC(out);
+
+    } catch (std::exception& e) {
+        // Clean up
+        delete it1;
+        delete it2;
+        delete it1common;
+        delete it2common;
+        if(out.is_open()) {
+            out.close();
+            unlink(seqloc.c_str());
+        }
+        for(int i=0; i<list.size(); i++){
+            if(list[i].second != nullptr)   delete[] list[i].second;
+        }
+        cout << "ERROR: " << e.what() << endl;
+    }
+
+    // Clean up
+    delete it1;
+    delete it2;
+    delete it1common;
+    delete it2common;
+    if(out.is_open()) {
+        out.close();
+        unlink(seqloc.c_str());
+    }
+    for(int i=0; i<list.size(); i++){
+        if(list[i].second != nullptr)   delete[] list[i].second;
+    }
+}
+
+void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, Dictionary *dict2,
+                                         ProgressListener *listener) {
+    // Construct shared mappings.
+    mappingSh1 = new CatMapping(location, "SH1", dict1->getNshared());
+    mappingSh2 = new CatMapping(location, "SH2", dict2->getNshared());
+
+    size_t count1 = 0, count2 = 0;
+    string s1, s2;  //!< used for comparison
+
+    size_t numBlocks = 0; //!< number of pfc buckets
+    size_t numElements = 0; //!< number of strings in the buckets
+    uint64_t bytes = 0; //!< total bytes of the buckets sequence
+    size_t capacity = sizeof(size_t)==8 ? 37 : 32; //!< capacity of pfc bucket
+
+    if(str != nullptr) freeStr(this->str);
+    size_t currentLength = 0;
+    string previousStr;
+
+    // Temporary file keeping the shared section,
+    string fileName = string(location) + "section" + to_string(CAT_SHARED);
+    ofstream out;
+
+    // Vector of pairs (id and string of term) to be compared / max capacity=4.
+    vector <pair<size_t, unsigned char *>> list;
+
+    try {
+        uint64_t reservedSize = 1024;
+        if(text != nullptr) free(text);
+        text = (unsigned char*)malloc(reservedSize*sizeof(unsigned char));
+
+        seqloc = string(location) + "LogSequence2Disk" + to_string(CAT_SHARED); //!< Filename for blocks
+        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / 16);
+
+        if(numentries > 0) {
+            // Itarators of shared terms.
+            it1temp = dict1->getShared();
+            it2temp = dict2->getShared();
+
+            // Common terms iterators.
+            itCommonSubjects1Objects2 = new CatCommon(dict1->getSubjects(), dict2->getObjects());
+            itCommonObjects1Subjects2 = new CatCommon(dict1->getObjects(), dict2->getSubjects());
+            itCommonShared1Subjects2 = new CatCommon(dict1->getShared(), dict2->getSubjects());
+            itCommonShared1Objects2 = new CatCommon(dict1->getShared(), dict2->getObjects());
+            itCommonShared2Subjects1 = new CatCommon(dict2->getShared(), dict1->getSubjects());
+            itCommonShared2Objects1 = new CatCommon(dict2->getShared(), dict1->getObjects());
+
+            // Used to store next common terms between different sections.
+            pair<size_t, size_t> commonShared1Subjects2 = make_pair((size_t) -1, (size_t) -1);
+            pair<size_t, size_t> commonShared1Objects2 = make_pair((size_t) -1, (size_t) -1);
+            pair<size_t, size_t> commonShared2Subjects1 = make_pair((size_t) -1, (size_t) -1);
+            pair<size_t, size_t> commonShared2Objects1 = make_pair((size_t) -1, (size_t) -1);
+            pair<size_t, size_t> idS1O2;
+            pair<size_t, size_t> idO1S2;
+
+            if(itCommonShared1Subjects2->hasNext()) {
+                commonShared1Subjects2 = itCommonShared1Subjects2->next();
+            }
+            if(itCommonShared1Objects2->hasNext()) {
+                commonShared1Objects2 = itCommonShared1Objects2->next();
+            }
+            if(itCommonShared2Subjects1->hasNext()) {
+                commonShared2Subjects1 = itCommonShared2Subjects1->next();
+            }
+            if(itCommonShared2Objects1->hasNext()) {
+                commonShared2Objects1 = itCommonShared2Objects1->next();
+            }
+
+            if (it1temp->hasNext()) {
+                list.push_back(make_pair((size_t) 1, it1temp->next()));
+            }
+            if (it2temp->hasNext()) {
+                list.push_back(make_pair((size_t) 2, it2temp->next()));
+            }
+            if(itCommonSubjects1Objects2->hasNext()) {
+                idS1O2 = itCommonSubjects1Objects2->next();
+                list.push_back(make_pair((size_t)3, (unsigned char *) dict1->idToString(idS1O2.first, SUBJECT).c_str()));
+            }
+            if(itCommonObjects1Subjects2->hasNext()) {
+                idO1S2 = itCommonObjects1Subjects2->next();
+                list.push_back(make_pair((size_t)4, (unsigned char *) dict1->idToString(idO1S2.second, OBJECT).c_str()));
+            }
+
+            while(list.size() != 0) {
+                // Sort list of id-string pairs.
+                sort(list.begin(), list.end(), sortBySec);
+
+                if(str != nullptr)  delete[] str;
+                str = list[0].second;
+                currentLength = strlen((char *) str);
+
+                // Reallocate if PFC vocabulary exceeds the reserved size.
+                if((bytes+currentLength+11) > reservedSize) {
+                    reservedSize = (bytes+currentLength+10)*2;
+                    text = (unsigned char *)realloc(text, reservedSize*sizeof(unsigned char));
+                }
+
+                if((numElements % blocksize) == 0) {
+                    blocks->push_back(bytes);
+                    numBlocks++;
+                    // The string is explicitly copied to the encoded sequence.
+                    strncpy((char*)(text+bytes), (char*)str, currentLength);
+                    bytes+=currentLength;
+                }
+                else {
+                    // Regular string
+
+                    // Calculate the length of the common prefix
+                    size_t delta = 0;
+                    unsigned char *prev = (unsigned char *)previousStr.c_str();
+                    size_t lstr1 = previousStr.length();
+                    size_t lstr2 = currentLength;
+                    size_t length = lstr1 < lstr2 ? lstr1 : lstr2;
+
+                    while( (delta<length) && (str[delta] == prev[delta])) {
+                        delta++;
+                    }
+
+                    // The prefix is differentially encoded
+                    bytes += csd::VByte::encode(text+bytes, delta);
+
+                    // The suffix is copied to the sequence
+                    strncpy((char*)(text+bytes), (char*)str+delta, currentLength-delta);
+                    bytes+=currentLength-delta;
+                }
+
+                // Add terminator of string.
+                text[bytes] = '\0';
+                bytes++;
+
+                // Save previous
+                previousStr.assign((char *)str);
+                if(list.size() >= 2) {
+                    s1 = string(reinterpret_cast<char *>(list[0].second));
+                    s2 = string(reinterpret_cast<char *>(list[1].second));
+                }
+                if(list.size() >= 2 && s1.compare(s2) == 0) {
+                    // This case can only happen if the iterators are from the shared section
+                    mappingSh1->set(count1, numElements+1, CAT_SHARED);
+                    mappingSh2->set(count2, numElements+1, CAT_SHARED);
+
+                    if(count1 == commonShared1Subjects2.first) {
+                        mappingS2->set(commonShared1Subjects2.second, numElements+1, CAT_SHARED);
+                    }
+                    if(count1 == commonShared1Objects2.first) {
+                        mappingO2->set(commonShared1Objects2.second, numElements+1, CAT_SHARED);
+                    }
+                    if(count2 == commonShared2Subjects1.first) {
+                        mappingS1->set(commonShared2Subjects1.second, numElements+1, CAT_SHARED);
+                    }
+                    if(count2 == commonShared2Objects1.first) {
+                        mappingO1->set(commonShared2Objects1.second, numElements+1, CAT_SHARED);
+                    }
+
+                    bool removed = false;
+                    if(it1temp->hasNext()) {
+                        count1++;
+                        freeStr(list[0].second);
+                        list[0] = make_pair((size_t) 1, it1temp->next());
+
+                        if(count1>commonShared1Subjects2.first && itCommonShared1Subjects2->hasNext()) {
+                            commonShared1Subjects2 = itCommonShared1Subjects2->next();
+                        }
+                        if(count1>commonShared1Objects2.first && itCommonShared1Objects2->hasNext()) {
+                            commonShared1Subjects2 = itCommonShared1Objects2->next();
+                        }
+                    }
+                    else {
+                        removed = true;
+                    }
+                    if (it2temp->hasNext()) {
+                        count2++;
+                        delete[] list[1].second;
+                        list[1] = make_pair((size_t) 2, it2temp->next());
+                        count2++;
+                        if (count2>commonShared2Subjects1.first && itCommonShared2Subjects1->hasNext()){
+                            commonShared2Subjects1 = itCommonShared2Subjects1->next();
+                        }
+
+                        if (count2>commonShared2Objects1.first && itCommonShared2Objects1->hasNext()){
+                            commonShared2Objects1 = itCommonShared2Objects1->next();
+                        }
+                    } else {
+                        delete[] list[1].second;
+                        list.erase(list.begin() + 1);
+                    }
+                    if (removed){
+                        freeStr(list[0].second);
+                        list.erase(list.begin());
+                    }
+                } else if(list[0].first==1) {
+                    mappingSh1->set(count1, numElements+1, CAT_SHARED);
+
+                    if (count1 == commonShared1Subjects2.first){
+                        mappingS2->set(commonShared1Subjects2.second, numElements+1, CAT_SHARED);
+                    }
+                    if (count1 == commonShared1Objects2.first){
+                        mappingO2->set(commonShared1Objects2.second, numElements+1, CAT_SHARED);
+                    }
+                    if (it1temp->hasNext()) {
+                        count1++;
+                        freeStr(list[0].second);
+                        list[0] = make_pair((size_t) 1, it1temp->next());
+
+                        if (count1>commonShared1Subjects2.first && itCommonShared1Subjects2->hasNext()){
+                            commonShared1Subjects2 = itCommonShared1Subjects2->next();
+                        }
+
+                        if (count1>commonShared1Objects2.first && itCommonShared1Objects2->hasNext()){
+                            commonShared1Objects2 = itCommonShared1Objects2->next();
+                        }
+                    } else {
+                        freeStr(list[0].second);
+                        list.erase(list.begin());
+                    }
+                } else if (list[0].first == 2) {
+                    mappingSh2->set(count2, numElements+1, CAT_SHARED);
+
+                    //Check if this is in common with Subjects2 or Objects2 for the mapping
+                    if (count2 == commonShared2Subjects1.first){
+                        mappingS1->set(commonShared2Subjects1.second, numElements+1, CAT_SHARED);
+                    }
+                    if (count2 == commonShared2Objects1.first){
+                        mappingO1->set(commonShared2Objects1.second, numElements+1, CAT_SHARED);
+                    }
+                    if (it2temp->hasNext()) {
+                        freeStr(list[0].second);
+                        list[0] = make_pair((size_t) 2, it2temp->next());
+                        count2++;
+
+                        if (count2>commonShared2Subjects1.first && itCommonShared2Subjects1->hasNext()){
+                            commonShared2Subjects1 = itCommonShared2Subjects1->next();
+                        }
+
+                        if (count2>commonShared2Objects1.first && itCommonShared2Objects1->hasNext()){
+                            commonShared2Objects1 = itCommonShared2Objects1->next();
+                        }
+                    } else {
+                        freeStr(list[0].second);
+                        list.erase(list.begin());
+                    }
+                } else if (list[0].first == 3){
+                    mappingS1->set(idS1O2.first, numElements+1, CAT_SHARED);
+                    mappingO2->set(idS1O2.second, numElements+1, CAT_SHARED);
+
+                    if (itCommonSubjects1Objects2->hasNext()) {
+                        idS1O2 = itCommonSubjects1Objects2->next();
+                        freeStr(list[0].second);
+                        list[0] = make_pair((size_t) 3, (unsigned char *) dict1->idToString(idS1O2.first+1, SUBJECT).c_str());
+                    } else {
+                        freeStr(list[0].second);
+                        list.erase(list.begin());
+                    }
+                } else {
+                    mappingO1->set(idO1S2.first, numElements+1, CAT_SHARED);
+                    mappingS2->set(idO1S2.second, numElements+1, CAT_SHARED);
+
+                    if (itCommonObjects1Subjects2->hasNext()) {
+                        idO1S2 = itCommonObjects1Subjects2->next();
+                        list[0] = make_pair((size_t) 4, (unsigned char *) dict2->idToString(idO1S2.second+1, SUBJECT).c_str());
+                    } else {
+                        freeStr(list[0].second);
+                        list.erase(list.begin());
+                    }
+                }
+                numElements++;
+            }
+            // Storing the final byte position in the vector of positions
+            blocks->push_back(bytes);
+            // Trunc encoded sequence to save unused memory
+            text = (unsigned char *) realloc(text, bytes*sizeof(unsigned char));
+            blocks->reduceBits();
+        }
+
+        out.open(fileName, ios::binary | ios::out | ios::trunc);
+        if(!out.good()) {
+            throw std::runtime_error("Could not open file to save dictionary shared section.");
+        }
+
+        CRC8 crch;
+        CRC32 crcd;
+        unsigned char buf[27]; //!< 9 bytes per VByte (max) * 3 values.
+
+        // Save type
+        unsigned char dicttype = csd::PFC;
+        crch.writeData(out, (unsigned char *)&dicttype, sizeof(dicttype));
+
+        // Save sizes
+        uint8_t pos = 0;
+        pos += csd::VByte::encode(&buf[pos], numentries);
+        pos += csd::VByte::encode(&buf[pos], bytes);
+        pos += csd::VByte::encode(&buf[pos], blocksize);
+
+        crch.writeData(out, buf, pos);
+        crch.writeCRC(out);
+
+        blocks->save(out);
+        delete blocks;
+        blocks = nullptr;
+
+        if(text) {
+            crcd.writeData(out, text, bytes);
+            free(text);
+            text=nullptr;
+        }
+        else {
+            assert(numentries==0);
+            assert(bytes==0);
+        }
+
+        crcd.writeCRC(out);
+
+    } catch (std::exception& e) {
+        if(out.is_open()) {
+            out.close();
+            unlink(seqloc.c_str());
+        }
+        for(int i=0; i<list.size(); i++){
+            if(list[i].second != nullptr)   delete[] list[i].second;
+        }
+        cout << "ERROR: " << e.what() << endl;
+    }
+
+    // Clean up
+    if(out.is_open()) {
+        out.close();
+        unlink(seqloc.c_str());
+    }
+    for(int i=0; i<list.size(); i++){
+        if(list[i].second != nullptr)   delete[] list[i].second;
+    }
 }
 
 CatMapping* FourSectionDictionaryCat::getMappingSh1()
@@ -272,78 +1018,283 @@ CatMappingBack* FourSectionDictionaryCat::getMappingS()
 }
 
 // CatMapping Methods:
-CatMapping::CatMapping(size_t size)
+CatMapping::CatMapping(const char *location, string section, size_t size)
 {
-    mapping.resize(size);
+    this->mappingFileName = string(location) + section;
+    mapping = new SizeTArrayDisk(mappingFileName.c_str(), size);
+
+    this->mappingTypeFileName = mappingFileName + "Types";
+    mappingType = new SizeTArrayDisk(mappingTypeFileName.c_str(), size);
+}
+
+CatMapping::~CatMapping() {
+    delete mapping;
+    delete mappingType;
 }
 
 size_t CatMapping::getMapping(size_t index)
 {
-    return mapping[index].first;
+    return mapping->get(index);
 }
 
 CatMappingType CatMapping::getType(size_t index)
 {
-    return mapping[index].second;
+    return (CatMappingType) mappingType->get(index);
 }
 
-void CatMapping::set(vector<pair<size_t, size_t> > vec, CatMappingType type)
+void CatMapping::set(size_t index, size_t val, CatMappingType type)
 {
-    for (size_t index = 0; index < vec.size(); index++) {
-        mapping[vec[index].first] = make_pair(vec[index].second, type);
-    }
+    this->mapping->set(index, val);
+    this->mappingType->set(index, (size_t) type);
 }
 
 size_t CatMapping::getSize()
 {
-    return mapping.size();
+    return mapping->getNumberOfElements();
 }
 
 // CatMappingBack Methods:
-CatMappingBack::CatMappingBack(size_t size)
+CatMappingBack::CatMappingBack(const char *location, size_t size)
 {
-    mapping1.resize(size + 1);
-    for (size_t i = 0; i < mapping1.size(); i++) {
-        mapping1[i] = make_pair(0, CAT_NONE);
-    }
-    this->mapping2.resize(size + 1);
-    for (size_t i = 0; i < mapping2.size(); i++) {
-        mapping2[i] = make_pair(0, CAT_NONE);
-    }
+    this->size = size+1;
+
+    this->mapping1FileName = string(location) + "mapping_back_1";
+    mapping1 = new SizeTArrayDisk(mapping1FileName.c_str(), this->size);
+
+    this->mappingType1FileName = string(location) + "mapping_back_type_1";
+    mappingType1 = new SizeTArrayDisk(mappingType1FileName.c_str(), this->size);
+
+    this->mapping2FileName = string(location) + "mapping_back_2";
+    mapping2 = new SizeTArrayDisk(mapping2FileName.c_str(), this->size);
+
+    this->mappingType2FileName = string(location) + "mapping_back_type_2";
+    mappingType2 = new SizeTArrayDisk(mappingType2FileName.c_str(), this->size);
+}
+
+CatMappingBack::~CatMappingBack() {
+    delete mapping1;
+    delete mappingType1;
+    delete mapping2;
+    delete mappingType2;
 }
 
 vector<size_t> CatMappingBack::getMapping(size_t index)
 {
     vector<size_t> r;
-    if (mapping1[index].first != 0)
-        r.push_back(mapping1[index].first);
-    if (mapping2[index].first != 0)
-        r.push_back(mapping2[index].first);
+    if (mapping1->get(index) != 0)
+        r.push_back(mapping1->get(index));
+    if (mapping2->get(index) != 0)
+        r.push_back(mapping2->get(index));
     return r;
 }
 
 vector<CatMappingBackType> CatMappingBack::getType(size_t index)
 {
     vector<CatMappingBackType> r;
-    if (mapping1[index].first != 0)
-        r.push_back(mapping1[index].second);
-    if (mapping2[index].first != 0)
-        r.push_back(mapping2[index].second);
+    if (mapping1->get(index) != 0)
+        r.push_back((CatMappingBackType) mappingType1->get(index));
+    if (mapping2->get(index) != 0)
+        r.push_back((CatMappingBackType) mappingType2->get(index));
     return r;
 }
 
 void CatMappingBack::set(size_t index, size_t mapping, CatMappingBackType type)
 {
-    if (mapping1[index].first == 0) {
-        mapping1[index] = make_pair(mapping, type);
+    if (mapping1->get(index) == 0) {
+        mapping1->set(index, mapping);
+        mappingType1->set(index, type);
     }
     else {
-        mapping2[index] = make_pair(mapping, type);
+        mapping2->set(index, mapping);
+        mappingType2->set(index, type);
     }
 }
 
 size_t CatMappingBack::getSize()
 {
-    return mapping1.size();
+    return this->size;
 }
+
+// CatCommon Methods
+CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2)
+        : it1(it1)
+        , it2(it2)
+        , has_next(false)
+        , count1(0)
+        , count2(0)
+        , prev1(nullptr)
+        , prev2(nullptr)
+{
+    if (it1->hasNext()) {
+        prev1 = it1->next();
+        list.push_back(make_pair((size_t)1, prev1));
+    }
+    if (it2->hasNext()) {
+        prev2 = it2->next();
+        list.push_back(make_pair((size_t)2, prev2));
+    }
+
+    helpNext();
+}
+
+CatCommon::~CatCommon()
+{
+    delete it1;
+    delete it2;
+};
+
+bool CatCommon::hasNext()
+{
+    return has_next;
+}
+
+pair<size_t, size_t> CatCommon::next()
+{
+    pair<size_t, size_t> r = make_pair(next_t.first, next_t.second);
+    has_next = false;
+    helpNext();
+    return r;
+}
+
+void CatCommon::helpNext()
+{
+    while (list.size() != 0) {
+        if (list.size() == 2) {
+            string s1 = string(reinterpret_cast<char*>(list[0].second));
+            string s2 = string(reinterpret_cast<char*>(list[1].second));
+            // Sort
+            if (s1.compare(s2) > 0) {
+                iter_swap(list.begin(), list.begin() + 1);
+            }
+            // If pairs have common terms:
+            if (!s1.compare(s2)) {
+                has_next = true;
+                next_t = make_pair(count1, count2);
+                if (list[1].second != nullptr) {
+                    delete [] list[1].second;
+                    list[1].second = nullptr;
+                }
+
+                bool remove = false;
+                if (it1->hasNext()) {
+                    prev1 = it1->next();
+                    list[0] = make_pair(1, prev1);
+                    count1++;
+                }
+                else {
+                    list.erase(list.begin());
+                    remove = true;
+                }
+
+                if (it2->hasNext()) {
+                    prev2 = it2->next();
+                    remove ? (list[0] = make_pair(2, prev2)) : (list[1] = make_pair(2, prev2));
+                    count2++;
+                }
+                else {
+                    if(list[0].second != nullptr) {
+                        delete[] list[0].second;
+                        list[0].second = nullptr;
+                    }
+                    list.erase(list.begin());
+                }
+                break;
+            }
+            else {
+                if (list[0].first == 1) {
+                    if(prev1 != nullptr) {
+                        delete [] prev1;
+                        prev1 = nullptr;
+                    }
+                    if (it1->hasNext()) {
+                        prev1 = it1->next();
+                        list[0] = make_pair(1, prev1);
+                        count1++;
+                    }
+                    else {
+                        list.erase(list.begin());
+                    }
+                }
+                else {
+                    if(prev2 != nullptr) {
+                        delete [] prev2;
+                        prev2 = nullptr;
+                    }
+                    if (it2->hasNext()) {
+                        prev2 = it2->next();
+                        list[0] = make_pair(2, prev2);
+                        count2++;
+                    }
+                    else {
+                        list.erase(list.begin());
+                    }
+                }
+            }
+        }
+        else if (list.size() == 1) {
+            delete [] list[0].second;
+            list[0].second = nullptr;
+            list.erase(list.begin());
+        }
+    }
+}
+
+// CatIterator Methods:
+CatIterator::CatIterator()
+{
+    it1 = nullptr;
+    it2 = nullptr;
+}
+
+CatIterator::CatIterator(CatCommon* it1, CatCommon* it2) : it1(it1), it2(it2)
+{
+    if (it1->hasNext()) {
+        list.push_back(make_pair((size_t)1, it1->next()));
+    }
+    if (it2->hasNext()) {
+        list.push_back(make_pair((size_t)2, it2->next()));
+    }
+}
+
+CatIterator::~CatIterator()
+{
+    if (it1)
+        delete it1;
+    if (it2)
+        delete it2;
+}
+
+bool CatIterator::hasNext()
+{
+    return list.size() > 0;
+}
+
+size_t CatIterator::next()
+{
+    size_t r;
+    //sort
+    if (list.size() > 1 && list[1].second.first < list[0].second.first) {
+        iter_swap(list.begin(), list.begin()+1);
+    }
+
+    r = list[0].second.first;
+    if (list[0].first == 1) {
+        if (it1->hasNext()) {
+            list[0] = make_pair((size_t)1, it1->next());
+        }
+        else {
+            list.erase(list.begin());
+        }
+    }
+    else {
+        if (it2->hasNext()) {
+            list[0] = make_pair((size_t)2, it2->next());
+        }
+        else {
+            list.erase(list.begin());
+        }
+    }
+    return r;
+}
+
 }

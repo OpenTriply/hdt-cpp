@@ -37,7 +37,7 @@ namespace hdt {
 
 
 class BasicHDT : public HDT {
-protected:
+private:
 	Header *header;
 	Dictionary *dictionary;
 	Triples *triples;
@@ -139,6 +139,15 @@ public:
     bool isIndexed() const {
         return triples->isIndexed();
     }
+
+    /**
+     * @param location
+     * @param baseUri
+     * @param hdt1
+     * @param hdt2
+     * @param listener
+     */
+     void cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, ProgressListener *listener);
 };
 
 class DictionaryLoader : public RDFCallback {

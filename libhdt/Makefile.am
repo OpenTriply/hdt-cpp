@@ -25,12 +25,10 @@ libhdt_la_SOURCES = \
 src/bitsequence/BitSequence375.cpp \
 src/dictionary/FourSectionDictionary.cpp \
 src/dictionary/FourSectionDictionaryCat.cpp \
-src/dictionary/FSDCatIterators.cpp \
 src/dictionary/KyotoDictionary.cpp \
 src/dictionary/LiteralDictionary.cpp \
 src/dictionary/PlainDictionary.cpp \
 src/hdt/BasicHDT.cpp \
-src/hdt/HDTCat.cpp \
 src/hdt/BasicModifiableHDT.cpp \
 src/hdt/ControlInformation.cpp \
 src/hdt/HDTFactory.cpp \
@@ -60,6 +58,7 @@ src/sequence/ArraySequence.cpp \
 src/sequence/HuffmanSequence.cpp \
 src/sequence/IntSequence.cpp \
 src/sequence/LogSequence2.cpp \
+src/sequence/LogSequence2Disk.cpp \
 src/sequence/LogSequence.cpp \
 src/sequence/WaveletSequence.cpp \
 src/sparql/IndexJoinBinding.cpp \
@@ -79,6 +78,7 @@ src/triples/TripleOrderConvert.cpp \
 src/triples/TriplesComparator.cpp \
 src/triples/TriplesKyoto.cpp \
 src/triples/TriplesList.cpp \
+src/util/SizeTArrayDisk.cpp \
 src/util/bitutil.cpp \
 src/util/crc16.cpp \
 src/util/crc32.cpp \
@@ -116,12 +116,10 @@ src/util/propertyutil.h\
 third/gzstream.h\
 src/dictionary/FourSectionDictionary.hpp\
 src/dictionary/FourSectionDictionaryCat.hpp\
-src/dictionary/FSDCatIterators.hpp \
 src/dictionary/KyotoDictionary.hpp\
 src/dictionary/LiteralDictionary.hpp\
 src/dictionary/PlainDictionary.hpp\
 src/hdt/BasicHDT.hpp\
-src/hdt/HDTCat.hpp\
 src/hdt/BasicModifiableHDT.hpp\
 src/hdt/HDTFactory.hpp\
 src/hdt/TripleIDStringIterator.hpp\
@@ -135,6 +133,7 @@ src/sequence/ArraySequence.hpp\
 src/sequence/HuffmanSequence.hpp\
 src/sequence/IntSequence.hpp\
 src/sequence/LogSequence2.hpp\
+src/sequence/LogSequence2Disk.hpp\
 src/sequence/LogSequence.hpp\
 src/sequence/WaveletSequence.hpp\
 src/sparql/BaseJoinBinding.hpp\
@@ -158,6 +157,7 @@ src/triples/TripleOrderConvert.hpp\
 src/triples/TriplesComparator.hpp\
 src/triples/TriplesKyoto.hpp\
 src/triples/TriplesList.hpp\
+src/util/SizeTArrayDisk.hpp \
 src/util/fdstream.hpp\
 src/util/fileUtil.hpp\
 src/util/StopWatch.hpp\

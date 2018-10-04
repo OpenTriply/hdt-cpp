@@ -29,7 +29,6 @@
 #include <HDTVocabulary.hpp>
 #include <HDTManager.hpp>
 #include "BasicHDT.hpp"
-#include "HDTCat.hpp"
 
 using namespace hdt;
 
@@ -82,10 +81,11 @@ HDT *HDTManager::generateHDT(const char *rdfFileName, const char *baseURI, RDFNo
 	return hdt;
 }
 
-HDT *HDTManager::catHDT(const char *hdt1, const char *hdt2, const char *baseUri, HDTSpecification &spec, ProgressListener *listener){
+HDT *HDTManager::catHDT(const char *location, const char *hdt1, const char *hdt2, const char *baseUri, HDTSpecification &hdtFormat, ProgressListener *listener){
 	HDT *mapHDT1 = mapHDT(hdt1, listener);
 	HDT *mapHDT2 = mapHDT(hdt2, listener);
-	HDTCat *hdtcat = new HDTCat(spec, baseUri, mapHDT1, mapHDT2, listener);
+	BasicHDT *hdtcat = new BasicHDT(hdtFormat);
+	hdtcat->cat(location, baseUri, mapHDT1, mapHDT2, listener);
 
 	delete mapHDT1;
 	delete mapHDT2;
