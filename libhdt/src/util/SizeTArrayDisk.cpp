@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <fcntl.h>	// open
 
+#define _GNU_SOURCE 1
 #include <unistd.h>
 
 #include <sys/types.h>
