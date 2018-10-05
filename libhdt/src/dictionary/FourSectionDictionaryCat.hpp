@@ -186,7 +186,7 @@ public:
 };
 
 /*!
- * A class iterator of common terms found in two IteratorUCharString objects.
+ * An iterator over common terms found in two IteratorUCharString objects.
  */
 class CatCommon {
 private:
@@ -198,7 +198,7 @@ private:
     bool has_next;
     size_t count1, count2; //<! Pointers to current positions of each input iterator.
     pair<size_t, size_t> next_t;   //<! A pair of ids that point to common terms.
-    unsigned char *prev1, *prev2;
+
 public:
     CatCommon();
     CatCommon(IteratorUCharString* it1, IteratorUCharString* it2);

@@ -1115,22 +1115,18 @@ size_t CatMappingBack::getSize()
 }
 
 // CatCommon Methods
-CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2)
-        : it1(it1)
-        , it2(it2)
-        , has_next(false)
-        , count1(0)
-        , count2(0)
-        , prev1(nullptr)
-        , prev2(nullptr)
+CatCommon::CatCommon() {
+    it1 = nullptr;
+    it2 = nullptr;
+}
+
+CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2) : it1(it1), it2(it2), has_next(false), count1(0), count2(0)
 {
     if (it1->hasNext()) {
-        prev1 = it1->next();
-        list.push_back(make_pair((size_t)1, prev1));
+        list.push_back(make_pair((size_t)1, it1->next()));
     }
     if (it2->hasNext()) {
-        prev2 = it2->next();
-        list.push_back(make_pair((size_t)2, prev2));
+        list.push_back(make_pair((size_t)2, it2->next()));
     }
 
     helpNext();
@@ -1138,8 +1134,10 @@ CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2)
 
 CatCommon::~CatCommon()
 {
-    delete it1;
-    delete it2;
+    if(it1)
+        delete it1;
+    if(it2)
+        delete it2;
 };
 
 bool CatCommon::hasNext()
@@ -1165,10 +1163,18 @@ void CatCommon::helpNext()
             if (s1.compare(s2) > 0) {
                 iter_swap(list.begin(), list.begin() + 1);
             }
+
+            // Delete first string, since it is stored in s1.
+            if(list[0].second != nullptr) {
+                delete[] list[0].second;
+                list[0].second = nullptr;
+            }
+
             // If pairs have common terms:
             if (!s1.compare(s2)) {
                 has_next = true;
                 next_t = make_pair(count1, count2);
+		// Delete second string
                 if (list[1].second != nullptr) {
                     delete [] list[1].second;
                     list[1].second = nullptr;
@@ -1176,8 +1182,7 @@ void CatCommon::helpNext()
 
                 bool remove = false;
                 if (it1->hasNext()) {
-                    prev1 = it1->next();
-                    list[0] = make_pair(1, prev1);
+                    list[0] = make_pair(1, it1->next());
                     count1++;
                 }
                 else {
@@ -1186,28 +1191,18 @@ void CatCommon::helpNext()
                 }
 
                 if (it2->hasNext()) {
-                    prev2 = it2->next();
-                    remove ? (list[0] = make_pair(2, prev2)) : (list[1] = make_pair(2, prev2));
+                    remove ? (list[0] = make_pair(2, it2->next())) : (list[1] = make_pair(2, it2->next()));
                     count2++;
                 }
                 else {
-                    if(list[0].second != nullptr) {
-                        delete[] list[0].second;
-                        list[0].second = nullptr;
-                    }
                     list.erase(list.begin());
                 }
                 break;
             }
             else {
                 if (list[0].first == 1) {
-                    if(prev1 != nullptr) {
-                        delete [] prev1;
-                        prev1 = nullptr;
-                    }
                     if (it1->hasNext()) {
-                        prev1 = it1->next();
-                        list[0] = make_pair(1, prev1);
+                        list[0] = make_pair(1, it1->next());
                         count1++;
                     }
                     else {
@@ -1215,13 +1210,8 @@ void CatCommon::helpNext()
                     }
                 }
                 else {
-                    if(prev2 != nullptr) {
-                        delete [] prev2;
-                        prev2 = nullptr;
-                    }
                     if (it2->hasNext()) {
-                        prev2 = it2->next();
-                        list[0] = make_pair(2, prev2);
+                        list[0] = make_pair(2, it2->next());
                         count2++;
                     }
                     else {
