@@ -11,38 +11,44 @@ using namespace std;
 
 namespace hdt {
 
+//! LogSequence2 implementation with memory mapping.
 class LogSequence2Disk : public IntSequence {
 private:
-    SizeTArrayDisk *data;
-    unsigned char numbits;
-    size_t numentries;
-    size_t maxval;
+    SizeTArrayDisk *data;   //<! memory mapped files.
+    unsigned char numbits;  //<! number of bits stored in data.
+    size_t numentries;      //<! number of entries in data.
+    size_t maxval;          //<! maximum permitable value of an entry.
 
     static const uint8_t TYPE_SEQLOG = 1;
     static const unsigned int W = sizeof(size_t)*8;
 
-    /** size_t's required to represent n integers of e bits each */
+    //! \param bitsField number of bits.
+    //! \param numEntries number of entries.
+    //! \return size_t's required to represent n integers of e bits each
     inline size_t numElementsFor(const size_t bitsField, const size_t numEntries) {
         return (((uint64_t)bitsField*numEntries+W-1)/W);
     }
 
-    /** Number of bits required for last word */
+    //! \param bitsField number of bits.
+    //! \param numEntries number of entries.
+    //! \return number of bits required for last word
     inline size_t lastWordNumBits(const size_t bitsField, const size_t numEntries) {
         size_t totalBits = bitsField*numEntries;
         if(totalBits==0) return 0;
         return (totalBits-1) % W + 1;
     }
 
-    /** Number of bytes required to represent n integers of e bits each */
+    //! \param bitsField number of bits.
+    //! \param numEntries number of entries.
+    //! \return number of bytes required to represent n integers of e bits each.
     inline size_t numBytesFor(const size_t bitsField, const size_t numEntries) {
         return ((uint64_t)bitsField*numEntries+7)/8;
     }
 
-    /** Retrieve a given index from array A where every value uses len bits
-	 * @param data
-	 * @param bitsField Length in bits of each field
-	 * @param index Position to store in
-	 */
+	 //! \param data
+	 //! \param bitsField length in bits of each field.
+	 //! \param index position to store in.
+	 //! \return
     inline size_t get_field(SizeTArrayDisk *data, const size_t bitsField, const size_t index) {
         if(bitsField==0) return 0;
 
@@ -59,12 +65,11 @@ private:
         return result;
     }
 
-    /** Store a given value in index into array A where every value uses bitsField bits
-	 * @param data
-	 * @param bitsField Length in bits of each field
-	 * @param index Position to store in
-	 * @param value Value to be stored
-	 */
+	 //! Store a given value in index into array A where every value uses bitsField bits.
+	 //! \param data
+	 //! \param bitsField length in bits of each field.
+	 //! \param index position to store in.
+	 //! \param value value to be stored.
     inline void set_field(SizeTArrayDisk *data, const size_t bitsField, const size_t index, const size_t value) {
         if(bitsField == 0) return;
 
@@ -90,7 +95,11 @@ public:
     virtual ~LogSequence2Disk();
 
     void set(size_t position, size_t value);
+
+    //! Pushes back in data, the given value.
+    //! \param value a size_t value to be appended in data.
     void push_back(size_t value);
+    //! Trims unnecessary bits at the end of data.
     void reduceBits();
 
     void add(IteratorUInt &elements);
@@ -101,15 +110,9 @@ public:
     void load(std::istream &input);
     size_t load(const unsigned char *ptr, const unsigned char *ptrMax, ProgressListener *listener=NULL);
     std::string getType();
-
-    inline void printContents() {
-//        cout << "Size of structure = " << this->data->getNumberOfElements() << endl;
-//        cout << this->data->get(0) << endl;
-//        for(size_t i=0; i<getNumberOfElements(); i++) {
-//            cout << "At index " << i << " found this => " << this->get(i) << "." << endl;
-//        }
-    }
-
+    //! Resizes data.
+    //! \param numElements the new size of data.
+    void resizeData(size_t numElements);
 };
 
 }

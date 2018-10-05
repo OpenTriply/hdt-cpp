@@ -36,9 +36,20 @@ void LogSequence2Disk::set(size_t position, size_t value) {
     set_field(data, numbits, position, value);
 }
 
+    size_t LogSequence2Disk::get(size_t position) {
+        if(position>=numentries) {
+            throw std::runtime_error("Trying to get an element bigger than the array.");
+        }
+        return this->get_field(data, numbits, position);
+    }
+
 void LogSequence2Disk::push_back(size_t value) {
     if(value>maxval) {
         throw std::runtime_error("Trying to insert a value bigger that expected. Please increase numbits when creating the data structure.");
+    }
+    size_t neededSize = numElementsFor(numbits, numentries+1);
+    if(data->getNumberOfElements() < neededSize) {
+        resizeData(data->getNumberOfElements()*2);
     }
     set(numentries, value);
     numentries++;
@@ -62,17 +73,18 @@ void LogSequence2Disk::reduceBits() {
         }
         numbits = newbits;;
         maxval = maxVal(numbits);
+
+        size_t totalSize = numElementsFor(numbits, numentries);
+        if(totalSize != this->data->getNumberOfElements()) {
+            resizeData(totalSize);
+        }
     }
 }
 
-void LogSequence2Disk::add(IteratorUInt &elements) {}
-
-size_t LogSequence2Disk::get(size_t position) {
-    if(position>=numentries) {
-        throw std::runtime_error("Trying to get an element bigger than the array.");
-    }
-    return this->get_field(data, numbits, position);
+void LogSequence2Disk::add(IteratorUInt &elements) {
+    throw std::logic_error("Not implemented");
 }
+
 size_t LogSequence2Disk::getNumberOfElements() {
     return numentries;
 }
@@ -121,8 +133,12 @@ void LogSequence2Disk::save(std::ostream &out) {
 
 }
 
-void LogSequence2Disk::load(std::istream &input) {}
-size_t LogSequence2Disk::load(const unsigned char *ptr, const unsigned char *ptrMax, ProgressListener *listener) { return 1;}
+void LogSequence2Disk::load(std::istream &input) {
+    throw std::logic_error("Not implemented");
+}
+size_t LogSequence2Disk::load(const unsigned char *ptr, const unsigned char *ptrMax, ProgressListener *listener) {
+    throw std::logic_error("Not implemented");
+}
 
 std::string LogSequence2Disk::getType() {
     return HDTVocabulary::SEQ_TYPE_LOG2;
@@ -130,6 +146,10 @@ std::string LogSequence2Disk::getType() {
 
 size_t LogSequence2Disk::size() {
     return numBytesFor(numbits, numentries);
+}
+
+void LogSequence2Disk::resizeData(size_t numElements) {
+    data->resize(numElements);
 }
 
 }
