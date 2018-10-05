@@ -7,7 +7,6 @@
 #include <unistd.h>
 #endif
 
-#include <sys/stat.h>	// stat
 #include <sys/types.h>
 
 #include <iostream>
@@ -22,17 +21,17 @@ using namespace std;
 
 namespace hdt {
 
-SizeTArrayDisk::SizeTArrayDisk(const char *location, size_t numElements) :
-    array(NULL),
-    location(location),
-    numElements(numElements),
-    mappedSize(numElements* sizeof(size_t))
+SizeTArrayDisk::SizeTArrayDisk(const char *location, size_t numElements) : array(nullptr), location(location),
+                                                                           numElements(numElements),
+                                                                           mappedSize(numElements* sizeof(size_t))
 {
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
+// TODO: cross-platform
 #else // Linux and OSX
 
-    if(mappedSize == 0) return;
+    // Return on invalid size
+    if(mappedSize <= 0) return;
 
     // Open file
     fd = open(location, O_RDWR | O_CREAT | O_TRUNC, (mode_t) 0600);
@@ -57,14 +56,14 @@ SizeTArrayDisk::SizeTArrayDisk(const char *location, size_t numElements) :
 }
 
 SizeTArrayDisk::~SizeTArrayDisk() {
-    if(mappedSize == 0 ) return;
+    if(mappedSize <= 0 ) return;
     this->unmapFile();
     close(fd);
 }
 
 void SizeTArrayDisk::mapFile() {
-    cout << "Mapping file: " << location << endl;
-    if(array != NULL) {
+    // cout << "Mapping file: " << location << endl;
+    if(array != nullptr) {
         return;
     }
     array = static_cast<size_t*>( mmap(NULL, mappedSize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0) );
@@ -74,23 +73,26 @@ void SizeTArrayDisk::mapFile() {
 }
 
 void SizeTArrayDisk::unmapFile() {
-    cout << "Unmapping file: " << location << endl;
+    // cout << "Unmapping file: " << location << endl;
     if(array != NULL && array != MAP_FAILED) {
         if(munmap(array, mappedSize) == -1) {
             throw std::runtime_error("munmap failed");
         }
     }
-    array = NULL;
+    array = nullptr;
     mappedSize = 0;
 }
 
 size_t SizeTArrayDisk::get(size_t index) {
-    if(mappedSize == 0 ) return 0;
+    if(mappedSize <= 0 )
+        return 0;
+
     return array[index];
 }
 
 void SizeTArrayDisk::set(size_t index, size_t val) {
-    if(mappedSize == 0 ) return;
+    if(mappedSize == 0 )
+        return;
     array[index] = val;
 }
 
@@ -100,6 +102,23 @@ size_t SizeTArrayDisk::getNumberOfElements() {
 
 size_t SizeTArrayDisk::getMappedSize() {
     return mappedSize;
+}
+
+void SizeTArrayDisk::resize(size_t newNumElements) {
+
+    if(array == nullptr)
+        return;
+
+    size_t oldNumElements = this->numElements;
+    this->numElements = newNumElements;
+    this->mappedSize = newNumElements * sizeof(size_t);
+
+    this->array = static_cast<size_t*>(mremap(array, oldNumElements* sizeof(size_t), mappedSize, MREMAP_MAYMOVE));
+
+    if(array == MAP_FAILED) {
+        throw std::runtime_error("mremap failed");
+    }
+
 }
 
 }
