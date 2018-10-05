@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 
         // HDTCat
         StopWatch globalTimer;
-        HDT *hdt = HDTManager::catHDT(inputFile1.c_str(), inputFile2.c_str(), baseUri.c_str(), spec);
+        HDT *hdt = HDTManager::catHDT("bla", inputFile1.c_str(), inputFile2.c_str(), baseUri.c_str(), spec);
         hdt->saveToHDT(outputFile.c_str());
 
         globalTimer.stop();
