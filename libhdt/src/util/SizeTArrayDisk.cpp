@@ -4,8 +4,9 @@
 #include <inttypes.h>
 #include <fcntl.h>	// open
 
-#define _GNU_SOURCE 1
+#ifndef WIN32
 #include <unistd.h>
+#endif
 
 #include <sys/types.h>
 
@@ -105,19 +106,23 @@ size_t SizeTArrayDisk::getMappedSize() {
 }
 
 void SizeTArrayDisk::resize(size_t newNumElements) {
-
-    if(array == nullptr)
-        return;
-
-    size_t oldNumElements = this->numElements;
+    
+    this->unmapFile();
     this->numElements = newNumElements;
-    this->mappedSize = newNumElements * sizeof(size_t);
+    mappedSize = newNumElements * sizeof(size_t);
 
-    this->array = static_cast<size_t*>(mremap(array, oldNumElements* sizeof(size_t), mappedSize, MREMAP_MAYMOVE));
-
-    if(array == MAP_FAILED) {
-        throw std::runtime_error("mremap failed");
+    // Stretch file
+    if(lseek(fd, mappedSize-1, SEEK_SET) == -1){
+        throw std::runtime_error("Error in lseek");
     }
+
+    // Update file size by writing something at the end (i.e. a '\0' char)
+    if(write(fd, "", 1) == -1) {
+        throw std::runtime_error("Error writing last byte of the file");
+    }
+
+    // remap
+    this->mapFile();
 
 }
 
