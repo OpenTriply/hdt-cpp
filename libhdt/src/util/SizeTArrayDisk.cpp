@@ -4,9 +4,7 @@
 #include <inttypes.h>
 #include <fcntl.h>	// open
 
-#ifndef WIN32
 #include <unistd.h>
-#endif
 
 #include <sys/types.h>
 
