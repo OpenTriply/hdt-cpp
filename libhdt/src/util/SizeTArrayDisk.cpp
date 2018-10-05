@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "SizeTArrayDisk.hpp"
 
 #include <inttypes.h>
