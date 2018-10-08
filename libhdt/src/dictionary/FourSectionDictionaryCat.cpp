@@ -1138,6 +1138,17 @@ CatCommon::~CatCommon()
         delete it1;
     if(it2)
         delete it2;
+
+    if(list.size() > 0) {
+        if(list[0].second != nullptr) {
+            delete[] list[0].second;
+            list[0].second = nullptr;
+        }
+        if(list.size() == 2 && list[1].second != nullptr) {
+            delete[] list[1].second;
+            list[1].second = nullptr;
+        }
+    }
 };
 
 bool CatCommon::hasNext()
@@ -1176,7 +1187,7 @@ void CatCommon::helpNext()
                 next_t = make_pair(count1, count2);
 		// Delete second string
                 if (list[1].second != nullptr) {
-                    delete [] list[1].second;
+                    delete[] list[1].second;
                     list[1].second = nullptr;
                 }
 
@@ -1195,6 +1206,10 @@ void CatCommon::helpNext()
                     count2++;
                 }
                 else {
+                    if(list[0].second != nullptr) {
+                        delete[] list[0].second;
+                        list[0].second = nullptr;
+                    }
                     list.erase(list.begin());
                 }
                 break;
@@ -1221,7 +1236,7 @@ void CatCommon::helpNext()
             }
         }
         else if (list.size() == 1) {
-            delete [] list[0].second;
+            delete[] list[0].second;
             list[0].second = nullptr;
             list.erase(list.begin());
         }
