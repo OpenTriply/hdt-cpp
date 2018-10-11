@@ -38,7 +38,6 @@ private:
     CatMappingBack* mappingS; //!< Inverse mapping of subjects/shared.
 
     unsigned char *str;
-    unsigned char *text;
 
     LogSequence2Disk *blocks; //!< Pointers to the first string of each bucket of a section dictionary sequence.
     string seqloc; //!< Filename for blocks

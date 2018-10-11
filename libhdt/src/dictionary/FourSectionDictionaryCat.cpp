@@ -57,7 +57,6 @@ FourSectionDictionaryCat::FourSectionDictionaryCat(const char *location) : locat
     mappingS = nullptr;
 
     str = nullptr;
-    text = nullptr;
 
     blocks = nullptr;
 
@@ -94,8 +93,6 @@ FourSectionDictionaryCat::~FourSectionDictionaryCat() {
 
     if(str != nullptr)
         delete str;
-    if(text != nullptr)
-        free(text);
 
     if(blocks != nullptr)
         delete blocks;
@@ -395,16 +392,27 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     string fileName = string(location) + "section" + to_string(type);
     ofstream out;
 
+    string fileName_2 = string(location) + "section_buffer_" + to_string(type);
+    ofstream out_2;
+
     // Vector of two pairs (id and string of term) to be compared.
     vector <pair<size_t, unsigned char *>> list;
 
+    uint64_t reservedSize = 1024 * blocksize;
+    vector<unsigned char> section_buffer(reservedSize, 0);
+    size_t written_bytes=0;
+    
+    ifstream in;
+
     try {
-        if(text != nullptr) free(text);
-        uint64_t reservedSize = 1024;
-        text = (unsigned char*)malloc(reservedSize*sizeof(unsigned char));
 
         seqloc = string(location) + "LogSequence2Disk" + to_string(type); //<! Filename for blocks.
-        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / 16);
+        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / blocksize);
+
+        out_2.open(fileName_2, ios::binary | ios::out | ios::trunc);
+        if (!out_2.good()) {
+            throw std::runtime_error("Failed to open section buffer.");
+        }
 
         if (numentries > 0) {
             if (it1->hasNext()) {
@@ -465,19 +473,24 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                     str = list[0].second;
                     currentLength = strlen((char *) str);
 
-                    // TODO: (important for optimization) replace text with a buffer and a file.
-                    // TODO (continue'd) If buffer is filled, flush and store it to file.
-                    // Reallocate if PFC vocabulary exceeds the reserved size.
-                    if((bytes+currentLength+11) > reservedSize) {
-                        reservedSize = (bytes+currentLength+10)*2;
-                        text = (unsigned char *)realloc(text, reservedSize*sizeof(unsigned char));
+                    // Flush buffer to file if expected new buffer length exceeds the reserved size.
+                    if((bytes-written_bytes+currentLength+11) > reservedSize) {
+                        out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
+                        section_buffer.clear();
+                        written_bytes+=(bytes-written_bytes);
+
+                        if (currentLength + 11 > reservedSize){
+                            section_buffer.resize(currentLength+11);
+                        } else if (section_buffer.size() > reservedSize){
+                            section_buffer.resize(reservedSize);
+                        }
                     }
 
                     if((numElements % blocksize) == 0) {
                         blocks->push_back(bytes);
                         numBlocks++;
                         // The string is explicitly copied to the encoded sequence.
-                        strncpy((char*)(text+bytes), (char*)str, currentLength);
+                        strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str, currentLength);
                         bytes+=currentLength;
                     }
                     else {
@@ -495,15 +508,15 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                         }
 
                         // The prefix is differentially encoded
-                        bytes += csd::VByte::encode(text+bytes, delta);
+                        bytes += csd::VByte::encode(section_buffer.data()+bytes-written_bytes, delta);
 
                         // The suffix is copied to the sequence
-                        strncpy((char*)(text+bytes), (char*)str+delta, currentLength-delta);
+                        strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str+delta, currentLength-delta);
                         bytes+=currentLength-delta;
                     }
 
                     // Add terminator of string.
-                    text[bytes] = '\0';
+                    section_buffer.push_back('\0');
                     bytes++;
 
                     // Save previous
@@ -576,7 +589,8 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         }
 
         blocks->push_back(bytes);
-        text = (unsigned char *) realloc(text, bytes*sizeof(unsigned char));
+        out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
+        out_2.close();
         blocks->reduceBits();
 
         out.open(fileName, ios::binary | ios::out | ios::trunc);
@@ -606,15 +620,20 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         delete blocks;
         blocks = nullptr;
 
-        if(text) {
-            crcd.writeData(out, text, bytes);
-            free(text);
-            text = nullptr;
+        size_t bufsize = 1000;
+        vector<char> buffer(bufsize+1, 0);
+        in.open(fileName_2, ios::binary | ios::in);
+        if (!in.good()) {
+            throw std::runtime_error("Error opening file to read section.");
         }
-        else {
-            assert(numentries==0);
-            assert(bytes==0);
+        while (!in.eof()) {
+            in.read(buffer.data(), bufsize);
+            streamsize s = ((in) ? bufsize : in.gcount());
+            buffer[s] = 0;
+            crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), s);
         }
+        in.close();
+        buffer.clear();
 
         crcd.writeCRC(out);
 
@@ -627,6 +646,13 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         if(out.is_open()) {
             out.close();
             unlink(seqloc.c_str());
+        }
+        if (out_2.is_open()) {
+            out_2.close();
+            unlink(fileName_2.c_str());
+        }
+        if (in.is_open()){
+            in.close();
         }
         for(int i=0; i<list.size(); i++){
             if(list[i].second != nullptr)   delete[] list[i].second;
@@ -642,6 +668,13 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     if(out.is_open()) {
         out.close();
         unlink(seqloc.c_str());
+    }
+    if (out_2.is_open()) {
+        out_2.close();
+        unlink(fileName_2.c_str());
+    }
+    if (in.is_open()){
+        in.close();
     }
     for(int i=0; i<list.size(); i++){
         if(list[i].second != nullptr)   delete[] list[i].second;
@@ -670,16 +703,27 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     string fileName = string(location) + "section" + to_string(CAT_SHARED);
     ofstream out;
 
+    string fileName_2 = string(location) + "section_buffer_shared";
+    ofstream out_2;
+
     // Vector of pairs (id and string of term) to be compared / max capacity=4.
     vector <pair<size_t, unsigned char *>> list;
 
+    uint64_t reservedSize = 1024 * blocksize;
+    vector<unsigned char> section_buffer(reservedSize, 0);
+    size_t written_bytes=0;
+
+    ifstream in;
+    
     try {
-        uint64_t reservedSize = 1024;
-        if(text != nullptr) free(text);
-        text = (unsigned char*)malloc(reservedSize*sizeof(unsigned char));
 
         seqloc = string(location) + "LogSequence2Disk" + to_string(CAT_SHARED); //!< Filename for blocks
-        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / 16);
+        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / blocksize);
+
+        out_2.open(fileName_2, ios::binary | ios::out | ios::trunc);
+        if (!out_2.good()) {
+            throw std::runtime_error("Failed to open section buffer.");
+        }
 
         if(numentries > 0) {
             // Itarators of shared terms.
@@ -738,17 +782,24 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                 str = list[0].second;
                 currentLength = strlen((char *) str);
 
-                // Reallocate if PFC vocabulary exceeds the reserved size.
-                if((bytes+currentLength+11) > reservedSize) {
-                    reservedSize = (bytes+currentLength+10)*2;
-                    text = (unsigned char *)realloc(text, reservedSize*sizeof(unsigned char));
+                // Flush buffer to file if expected new buffer length exceeds the reserved size.
+                if((bytes-written_bytes+currentLength+11) > reservedSize) {
+                    out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
+                    section_buffer.clear();
+                    written_bytes+=(bytes-written_bytes);
+
+                    if (currentLength + 11 > reservedSize){
+                        section_buffer.resize(currentLength+11);
+                    } else if (section_buffer.size() > reservedSize){
+                        section_buffer.resize(reservedSize);
+                    }
                 }
 
                 if((numElements % blocksize) == 0) {
                     blocks->push_back(bytes);
                     numBlocks++;
                     // The string is explicitly copied to the encoded sequence.
-                    strncpy((char*)(text+bytes), (char*)str, currentLength);
+                    strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str, currentLength);
                     bytes+=currentLength;
                 }
                 else {
@@ -766,15 +817,15 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     }
 
                     // The prefix is differentially encoded
-                    bytes += csd::VByte::encode(text+bytes, delta);
+                    bytes += csd::VByte::encode(section_buffer.data()+bytes-written_bytes, delta);
 
                     // The suffix is copied to the sequence
-                    strncpy((char*)(text+bytes), (char*)str+delta, currentLength-delta);
+                    strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str+delta, currentLength-delta);
                     bytes+=currentLength-delta;
                 }
 
                 // Add terminator of string.
-                text[bytes] = '\0';
+                section_buffer.push_back('\0');
                 bytes++;
 
                 // Save previous
@@ -915,8 +966,8 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
             }
             // Storing the final byte position in the vector of positions
             blocks->push_back(bytes);
-            // Trunc encoded sequence to save unused memory
-            text = (unsigned char *) realloc(text, bytes*sizeof(unsigned char));
+            out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
+            out_2.close();
             blocks->reduceBits();
         }
 
@@ -946,15 +997,20 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         delete blocks;
         blocks = nullptr;
 
-        if(text) {
-            crcd.writeData(out, text, bytes);
-            free(text);
-            text=nullptr;
+        size_t bufsize = 1000;
+        vector<char> buffer(bufsize+1, 0);
+        in.open(fileName_2, ios::binary | ios::in);
+        if (!in.good()) {
+            throw std::runtime_error("Error opening file to read section.");
         }
-        else {
-            assert(numentries==0);
-            assert(bytes==0);
+        while (!in.eof()) {
+            in.read(buffer.data(), bufsize);
+            streamsize s = ((in) ? bufsize : in.gcount());
+            buffer[s] = 0;
+            crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), s);
         }
+        in.close();
+        buffer.clear();
 
         crcd.writeCRC(out);
 
@@ -962,6 +1018,13 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         if(out.is_open()) {
             out.close();
             unlink(seqloc.c_str());
+        }
+        if (out_2.is_open()) {
+            out_2.close();
+            unlink(fileName_2.c_str());
+        }
+        if (in.is_open()){
+            in.close()
         }
         for(int i=0; i<list.size(); i++){
             if(list[i].second != nullptr)   delete[] list[i].second;
@@ -973,6 +1036,13 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     if(out.is_open()) {
         out.close();
         unlink(seqloc.c_str());
+    }
+    if (out_2.is_open()) {
+        out_2.close();
+        unlink(fileName_2.c_str());
+    }
+    if (in.is_open()){
+        in.close()
     }
     for(int i=0; i<list.size(); i++){
         if(list[i].second != nullptr)   delete[] list[i].second;
