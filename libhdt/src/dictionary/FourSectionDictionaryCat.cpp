@@ -1024,7 +1024,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
             unlink(fileName_2.c_str());
         }
         if (in.is_open()){
-            in.close()
+            in.close();
         }
         for(int i=0; i<list.size(); i++){
             if(list[i].second != nullptr)   delete[] list[i].second;
@@ -1042,7 +1042,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         unlink(fileName_2.c_str());
     }
     if (in.is_open()){
-        in.close()
+        in.close();
     }
     for(int i=0; i<list.size(); i++){
         if(list[i].second != nullptr)   delete[] list[i].second;
