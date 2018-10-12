@@ -34,15 +34,15 @@ FourSectionDictionaryCat::FourSectionDictionaryCat(const char *location) : locat
 
     /// Set blocksize if specified in spec file.
     blocksize = 16;
-    string blockSizeStr = "";
+    string blockSizeStr;
     try {
         blockSizeStr = spec.get("dict.block.size");
     }
     catch (exception& e) {
     }
 
-    if (blockSizeStr != "") {
-        blocksize = atoi((const char*)blockSizeStr.c_str());
+    if (!blockSizeStr.empty()) {
+        blocksize = static_cast<uint32_t>(atoi(blockSizeStr.c_str()));
     }
 
     // Attributes that will be created dynamically:
@@ -72,48 +72,30 @@ FourSectionDictionaryCat::FourSectionDictionaryCat(const char *location) : locat
 }
 
 FourSectionDictionaryCat::~FourSectionDictionaryCat() {
-    if(mappingS1 != nullptr)
-        delete mappingS1;
-    if(mappingS2 != nullptr)
-        delete mappingS2;
-    if(mappingP1 != nullptr)
-        delete mappingP1;
-    if(mappingP2 != nullptr)
-        delete mappingP2;
-    if(mappingO1 != nullptr)
-        delete mappingO1;
-    if(mappingO2 != nullptr)
-        delete mappingO2;
-    if(mappingSh1 != nullptr)
-        delete mappingSh1;
-    if(mappingSh2 != nullptr)
-        delete mappingSh2;
-    if(mappingS != nullptr)
-        delete mappingS;
 
-    if(str != nullptr)
-        delete str;
+    delete mappingS1;
+    delete mappingS2;
+    delete mappingP1;
+    delete mappingP2;
+    delete mappingO1;
+    delete mappingO2;
+    delete mappingSh1;
+    delete mappingSh2;
+    delete mappingS;
 
-    if(blocks != nullptr)
-        delete blocks;
+    delete str;
 
-    if(it1temp != nullptr)
-        delete it1temp;
-    if(it2temp != nullptr)
-        delete it2temp;
+    delete blocks;
 
-    if(itCommonSubjects1Objects2 != nullptr)
-        delete itCommonSubjects1Objects2;
-    if(itCommonObjects1Subjects2 != nullptr)
-        delete itCommonObjects1Subjects2;
-    if(itCommonShared1Subjects2 != nullptr)
-        delete itCommonShared1Subjects2;
-    if(itCommonShared1Objects2 != nullptr)
-        delete itCommonShared1Objects2;
-    if(itCommonShared2Subjects1 != nullptr)
-        delete itCommonShared2Subjects1;
-    if(itCommonShared2Objects1 != nullptr)
-        delete itCommonShared2Objects1;
+    delete it1temp;
+    delete it2temp;
+
+    delete itCommonSubjects1Objects2;
+    delete itCommonObjects1Subjects2;
+    delete itCommonShared1Subjects2;
+    delete itCommonShared1Objects2;
+    delete itCommonShared2Subjects1;
+    delete itCommonShared2Objects1;
 }
 
 void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, ProgressListener* listener)
@@ -324,8 +306,7 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
         }
 
     } catch (std::exception& e) {
-        if(ci)
-            delete ci;
+        delete ci;
         if(outFinal.is_open())
             outFinal.close();
         if(in.is_open()) {
@@ -336,8 +317,8 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
     }
 
     // Clean-up
-    if(ci)
-        delete ci;
+
+    delete ci;
     if(outFinal.is_open())
         outFinal.close();
 
@@ -392,23 +373,24 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     string fileName = string(location) + "section" + to_string(type);
     ofstream out;
 
+    // Temporary file keeping the section buffer.
     string fileName_2 = string(location) + "section_buffer_" + to_string(type);
     ofstream out_2;
+
+    ifstream in; //!< Input stream for writing from buffer file to section.
+
+    uint64_t reservedSize = 1024 * blocksize * sizeof(char); //!< Section buffer reserved size.
+    vector<unsigned char> section_buffer(reservedSize, 0);
+    size_t written_bytes=0;
 
     // Vector of two pairs (id and string of term) to be compared.
     vector <pair<size_t, unsigned char *>> list;
 
-    uint64_t reservedSize = 1024 * blocksize;
-    vector<unsigned char> section_buffer(reservedSize, 0);
-    size_t written_bytes=0;
-    
-    ifstream in;
-
     try {
-
         seqloc = string(location) + "LogSequence2Disk" + to_string(type); //<! Filename for blocks.
-        blocks = new LogSequence2Disk(seqloc.c_str(), numbits, numentries / blocksize);
+        blocks = new LogSequence2Disk(seqloc.c_str(), static_cast<unsigned int>(numbits), numentries / blocksize);
 
+        // Open buffer file for writing.
         out_2.open(fileName_2, ios::binary | ios::out | ios::trunc);
         if (!out_2.good()) {
             throw std::runtime_error("Failed to open section buffer.");
@@ -416,10 +398,10 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
 
         if (numentries > 0) {
             if (it1->hasNext()) {
-                list.push_back(make_pair((size_t) 1, it1->next()));
+                list.emplace_back((size_t) 1, it1->next());
             }
             if (it2->hasNext()) {
-                list.push_back(make_pair((size_t) 2, it2->next()));
+                list.emplace_back((size_t) 2, it2->next());
             }
             if (it1common->hasNext()) {
                 skipSection1 = it1common->next();
@@ -428,7 +410,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                 skipSection2 = it2common->next();
             }
 
-            while (list.size() != 0) {
+            while (!list.empty()) {
                 // TODO: Listener notify here
                 // Sort the two strings.
                 sort(list.begin(), list.end(), sortBySec);
@@ -466,10 +448,10 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                     }
                 }
 
-                if (skip == false) {
-                    if(str != nullptr) {
-                        delete[] str;
-                    }
+                if (!skip) {
+
+                    delete[] str;
+
                     str = list[0].second;
                     currentLength = strlen((char *) str);
 
@@ -479,6 +461,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                         section_buffer.clear();
                         written_bytes+=(bytes-written_bytes);
 
+                        // Check if string can fit the whole buffer
                         if (currentLength + 11 > reservedSize){
                             section_buffer.resize(currentLength+11);
                         } else if (section_buffer.size() > reservedSize){
@@ -498,7 +481,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
 
                         // Calculate the length of the common prefix
                         size_t delta = 0;
-                        unsigned char *prev = (unsigned char *)previousStr.c_str();
+                        auto *prev = (unsigned char *)previousStr.c_str();
                         size_t lstr1 = previousStr.length();
                         size_t lstr2 = currentLength;
                         size_t length = lstr1 < lstr2 ? lstr1 : lstr2;
@@ -526,7 +509,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                         s1 = string(reinterpret_cast<char *>(list[0].second));
                         s2 = string(reinterpret_cast<char *>(list[1].second));
                     }
-                    if (list.size() >= 2 && s1.compare(s2) == 0) {
+                    if (list.size() >= 2 && s1 == s2) {
                         bool removed = false;
                         mappingHdt1->set(count1, numElements + 1, type);
                         count1++;
@@ -605,7 +588,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
 
         // Save type
         unsigned char dicttype = csd::PFC;
-        crch.writeData(out, (unsigned char *)&dicttype, sizeof(dicttype));
+        crch.writeData(out, &dicttype, sizeof(dicttype));
 
         // Save sizes
         uint8_t pos = 0;
@@ -620,6 +603,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         delete blocks;
         blocks = nullptr;
 
+        // Write contents of buffer file in section.
         size_t bufsize = 1000;
         vector<char> buffer(bufsize+1, 0);
         in.open(fileName_2, ios::binary | ios::in);
@@ -630,7 +614,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
             in.read(buffer.data(), bufsize);
             streamsize s = ((in) ? bufsize : in.gcount());
             buffer[s] = 0;
-            crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), s);
+            crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), static_cast<size_t>(s));
         }
         in.close();
         buffer.clear();
@@ -654,8 +638,8 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         if (in.is_open()){
             in.close();
         }
-        for(int i=0; i<list.size(); i++){
-            if(list[i].second != nullptr)   delete[] list[i].second;
+        for (auto &i : list) {
+            delete[] i.second;
         }
         cout << "ERROR: " << e.what() << endl;
     }
@@ -676,8 +660,8 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     if (in.is_open()){
         in.close();
     }
-    for(int i=0; i<list.size(); i++){
-        if(list[i].second != nullptr)   delete[] list[i].second;
+    for (auto &i : list) {
+        delete[] i.second;
     }
 }
 
@@ -703,22 +687,23 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     string fileName = string(location) + "section" + to_string(CAT_SHARED);
     ofstream out;
 
+    // Temporary file keeping the shared section buffer.
     string fileName_2 = string(location) + "section_buffer_shared";
     ofstream out_2;
+
+    ifstream in; //!< Input stream for writing from buffer to shared section.
+
+    uint64_t reservedSize = 1024 * blocksize * sizeof(char);
+    vector<unsigned char> section_buffer(reservedSize, 0);
+    size_t written_bytes=0;
 
     // Vector of pairs (id and string of term) to be compared / max capacity=4.
     vector <pair<size_t, unsigned char *>> list;
 
-    uint64_t reservedSize = 1024 * blocksize;
-    vector<unsigned char> section_buffer(reservedSize, 0);
-    size_t written_bytes=0;
-
-    ifstream in;
-    
     try {
 
         seqloc = string(location) + "LogSequence2Disk" + to_string(CAT_SHARED); //!< Filename for blocks
-        blocks = new LogSequence2Disk(seqloc.c_str(), numbits, numentries / blocksize);
+        blocks = new LogSequence2Disk(seqloc.c_str(), static_cast<unsigned int>(numbits), numentries / blocksize);
 
         out_2.open(fileName_2, ios::binary | ios::out | ios::trunc);
         if (!out_2.good()) {
@@ -760,25 +745,25 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
             }
 
             if (it1temp->hasNext()) {
-                list.push_back(make_pair((size_t) 1, it1temp->next()));
+                list.emplace_back((size_t) 1, it1temp->next());
             }
             if (it2temp->hasNext()) {
-                list.push_back(make_pair((size_t) 2, it2temp->next()));
+                list.emplace_back((size_t) 2, it2temp->next());
             }
             if(itCommonSubjects1Objects2->hasNext()) {
                 idS1O2 = itCommonSubjects1Objects2->next();
-                list.push_back(make_pair((size_t)3, (unsigned char *) dict1->idToString(idS1O2.first, SUBJECT).c_str()));
+                list.emplace_back((size_t)3, (unsigned char *) dict1->idToString(idS1O2.first, SUBJECT).c_str());
             }
             if(itCommonObjects1Subjects2->hasNext()) {
                 idO1S2 = itCommonObjects1Subjects2->next();
-                list.push_back(make_pair((size_t)4, (unsigned char *) dict1->idToString(idO1S2.second, OBJECT).c_str()));
+                list.emplace_back((size_t)4, (unsigned char *) dict1->idToString(idO1S2.second, OBJECT).c_str());
             }
 
-            while(list.size() != 0) {
+            while(!list.empty()) {
                 // Sort list of id-string pairs.
                 sort(list.begin(), list.end(), sortBySec);
 
-                if(str != nullptr)  delete[] str;
+                delete[] str;
                 str = list[0].second;
                 currentLength = strlen((char *) str);
 
@@ -788,6 +773,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     section_buffer.clear();
                     written_bytes+=(bytes-written_bytes);
 
+                    // Check if string is not bigger than buffer size.
                     if (currentLength + 11 > reservedSize){
                         section_buffer.resize(currentLength+11);
                     } else if (section_buffer.size() > reservedSize){
@@ -807,7 +793,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
 
                     // Calculate the length of the common prefix
                     size_t delta = 0;
-                    unsigned char *prev = (unsigned char *)previousStr.c_str();
+                    auto *prev = (unsigned char *)previousStr.c_str();
                     size_t lstr1 = previousStr.length();
                     size_t lstr2 = currentLength;
                     size_t length = lstr1 < lstr2 ? lstr1 : lstr2;
@@ -834,7 +820,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     s1 = string(reinterpret_cast<char *>(list[0].second));
                     s2 = string(reinterpret_cast<char *>(list[1].second));
                 }
-                if(list.size() >= 2 && s1.compare(s2) == 0) {
+                if(list.size() >= 2 && s1 == s2) {
                     // This case can only happen if the iterators are from the shared section
                     mappingSh1->set(count1, numElements+1, CAT_SHARED);
                     mappingSh2->set(count2, numElements+1, CAT_SHARED);
@@ -982,7 +968,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
 
         // Save type
         unsigned char dicttype = csd::PFC;
-        crch.writeData(out, (unsigned char *)&dicttype, sizeof(dicttype));
+        crch.writeData(out, &dicttype, sizeof(dicttype));
 
         // Save sizes
         uint8_t pos = 0;
@@ -997,6 +983,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         delete blocks;
         blocks = nullptr;
 
+        // Write contents of buffer file in section.
         size_t bufsize = 1000;
         vector<char> buffer(bufsize+1, 0);
         in.open(fileName_2, ios::binary | ios::in);
@@ -1007,7 +994,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
             in.read(buffer.data(), bufsize);
             streamsize s = ((in) ? bufsize : in.gcount());
             buffer[s] = 0;
-            crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), s);
+            crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), static_cast<size_t>(s));
         }
         in.close();
         buffer.clear();
@@ -1026,8 +1013,8 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         if (in.is_open()){
             in.close();
         }
-        for(int i=0; i<list.size(); i++){
-            if(list[i].second != nullptr)   delete[] list[i].second;
+        for (auto &i : list) {
+            delete[] i.second;
         }
         cout << "ERROR: " << e.what() << endl;
     }
@@ -1044,8 +1031,8 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     if (in.is_open()){
         in.close();
     }
-    for(int i=0; i<list.size(); i++){
-        if(list[i].second != nullptr)   delete[] list[i].second;
+    for (auto &i : list) {
+        delete[] i.second;
     }
 }
 
@@ -1197,10 +1184,10 @@ CatCommon::CatCommon() {
 CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2) : it1(it1), it2(it2), has_next(false), count1(0), count2(0)
 {
     if (it1->hasNext()) {
-        list.push_back(make_pair((size_t)1, it1->next()));
+        list.emplace_back((size_t)1, it1->next());
     }
     if (it2->hasNext()) {
-        list.push_back(make_pair((size_t)2, it2->next()));
+        list.emplace_back(make_pair((size_t)2, it2->next()));
     }
 
     helpNext();
@@ -1208,12 +1195,10 @@ CatCommon::CatCommon(IteratorUCharString* it1, IteratorUCharString* it2) : it1(i
 
 CatCommon::~CatCommon()
 {
-    if(it1)
-        delete it1;
-    if(it2)
-        delete it2;
+    delete it1;
+    delete it2;
 
-    if(list.size() > 0) {
+    if(!list.empty()) {
         if(list[0].second != nullptr) {
             delete[] list[0].second;
             list[0].second = nullptr;
@@ -1240,7 +1225,7 @@ pair<size_t, size_t> CatCommon::next()
 
 void CatCommon::helpNext()
 {
-    while (list.size() != 0) {
+    while (!list.empty()) {
         if (list.size() == 2) {
             string s1 = string(reinterpret_cast<char*>(list[0].second));
             string s2 = string(reinterpret_cast<char*>(list[1].second));
@@ -1256,10 +1241,10 @@ void CatCommon::helpNext()
             }
 
             // If pairs have common terms:
-            if (!s1.compare(s2)) {
+            if (s1 == s2) {
                 has_next = true;
                 next_t = make_pair(count1, count2);
-		// Delete second string
+		        // Delete second string
                 if (list[1].second != nullptr) {
                     delete[] list[1].second;
                     list[1].second = nullptr;
@@ -1327,24 +1312,22 @@ CatIterator::CatIterator()
 CatIterator::CatIterator(CatCommon* it1, CatCommon* it2) : it1(it1), it2(it2)
 {
     if (it1->hasNext()) {
-        list.push_back(make_pair((size_t)1, it1->next()));
+        list.emplace_back(make_pair((size_t)1, it1->next()));
     }
     if (it2->hasNext()) {
-        list.push_back(make_pair((size_t)2, it2->next()));
+        list.emplace_back(make_pair((size_t)2, it2->next()));
     }
 }
 
 CatIterator::~CatIterator()
 {
-    if (it1)
-        delete it1;
-    if (it2)
-        delete it2;
+    delete it1;
+    delete it2;
 }
 
 bool CatIterator::hasNext()
 {
-    return list.size() > 0;
+    return !list.empty();
 }
 
 size_t CatIterator::next()
