@@ -382,7 +382,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     size_t numBlocks = 0; //!< number of pfc buckets
     size_t numElements = 0; //!< number of strings in the buckets
     uint64_t bytes = 0; //!< total bytes of the buckets sequence
-    size_t capacity = sizeof(size_t)==8 ? 37 : 32; //!< capacity of pfc bucket
+    size_t numbits = sizeof(size_t)==8 ? 37 : 32; //!< numbits of pfc bucket
 
     if(str != nullptr) freeStr(str);
     size_t currentLength = 0;
@@ -407,7 +407,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     try {
 
         seqloc = string(location) + "LogSequence2Disk" + to_string(type); //<! Filename for blocks.
-        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / blocksize);
+        blocks = new LogSequence2Disk(seqloc.c_str(), numbits, numentries / blocksize);
 
         out_2.open(fileName_2, ios::binary | ios::out | ios::trunc);
         if (!out_2.good()) {
@@ -693,7 +693,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     size_t numBlocks = 0; //!< number of pfc buckets
     size_t numElements = 0; //!< number of strings in the buckets
     uint64_t bytes = 0; //!< total bytes of the buckets sequence
-    size_t capacity = sizeof(size_t)==8 ? 37 : 32; //!< capacity of pfc bucket
+    size_t numbits = sizeof(size_t)==8 ? 37 : 32; //!< numbits of pfc bucket
 
     if(str != nullptr) freeStr(this->str);
     size_t currentLength = 0;
@@ -718,7 +718,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     try {
 
         seqloc = string(location) + "LogSequence2Disk" + to_string(CAT_SHARED); //!< Filename for blocks
-        blocks = new LogSequence2Disk(seqloc.c_str(), capacity, numentries / blocksize);
+        blocks = new LogSequence2Disk(seqloc.c_str(), numbits, numentries / blocksize);
 
         out_2.open(fileName_2, ios::binary | ios::out | ios::trunc);
         if (!out_2.good()) {
