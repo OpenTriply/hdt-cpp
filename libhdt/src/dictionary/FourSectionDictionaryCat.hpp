@@ -27,6 +27,7 @@ class CatIterator;
 class FourSectionDictionaryCat : public FourSectionDictionary {
 private:
     const char* location;
+    size_t numShared; //<! Number of shared terms.
     CatMapping* mappingSh1; //!< Input 1 mapping: Shared terms.
     CatMapping* mappingSh2; //!< Input 2 mapping: Shared terms.
     CatMapping* mappingS1; //!< Input 1 mapping: Subject terms.
@@ -89,6 +90,8 @@ public:
     //! \param dict2 the dictionary of second HDT file.
     //! \param listener the progress listener.
     void catShared(size_t numentries, Dictionary *dict1, Dictionary *dict2, ProgressListener *listener=NULL);
+
+    size_t getNumSared();
 
     //! Accessors of section mappings.
     CatMapping* getMappingSh1();

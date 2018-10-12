@@ -270,7 +270,7 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
     delete common;
 
     // Calculate the total number of output shared terms.
-    size_t numShared = dict1->getNshared() + dict2->getNshared() - numCommonSh1Sh2 + numCommonS1O2 + numCommonO1S2;
+    numShared = dict1->getNshared() + dict2->getNshared() - numCommonSh1Sh2 + numCommonS1O2 + numCommonO1S2;
 
     // Create the shared section.
     catShared(numShared, dict1, dict2, listener);
@@ -1047,6 +1047,10 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     for(int i=0; i<list.size(); i++){
         if(list[i].second != nullptr)   delete[] list[i].second;
     }
+}
+
+size_t FourSectionDictionaryCat::getNumSared() {
+    return this->numShared;
 }
 
 CatMapping* FourSectionDictionaryCat::getMappingSh1()
