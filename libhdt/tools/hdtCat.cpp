@@ -27,7 +27,6 @@ void help() {
     cout << "\t-V\tPrints the HDT version number." << endl;
     cout << "\t-p\tPrints a progress indicator." << endl;
     cout << "\t-v\tVerbose output" << endl;
-    // TODO: Add option to use streams instead of memory mapped files.
 }
 
 int main(int argc, char **argv) {
@@ -105,19 +104,19 @@ int main(int argc, char **argv) {
     inputFile2 = argv[optind+1];
     outputFile = argv[optind+2];
 
-    if(inputFile1=="" || inputFile2=="") {
+    if(inputFile1.empty() || inputFile2.empty()) {
         cerr << "ERROR: You must supply two HDT input files" << endl << endl;
         help();
         return 1;
     }
 
-    if(outputFile=="") {
+    if(outputFile.empty()) {
         cerr << "ERROR: You must supply an HDT output file name" << endl << endl;
         help();
         return 1;
     }
 
-    if(baseUri=="") {
+    if(baseUri.empty()) {
         baseUri="<file://"+outputFile+">";
     }
 
@@ -129,15 +128,12 @@ int main(int argc, char **argv) {
     // Create a temporary directory
     // TODO: Support other OS's
     realpath(outputFile.c_str(), absolutePath);
-    cout << absolutePath << endl;
     theDir = strcat(absolutePath, "_tmp");
     mkdir(theDir, mode);
     location = string(theDir) + "/";
-    cout << "theDir = " << string(theDir) << endl;
-    cout << "Location = " << location << endl;
     try {
         StopWatch globalTimer;
-        ProgressListener* progress = showProgress ? new StdoutProgressListener() : NULL;
+        ProgressListener* progress = showProgress ? new StdoutProgressListener() : nullptr;
 
         HDT *hdt = HDTManager::catHDT(location.c_str(), inputFile1.c_str(), inputFile2.c_str(), baseUri.c_str(), spec, progress);
 
@@ -145,18 +141,11 @@ int main(int argc, char **argv) {
          * TODO (optional) vout << Basic stats:
         */
 
-//        hdt->saveToHDT(outputFile.c_str(), progress);
+        hdt->saveToHDT(outputFile.c_str(), progress);
 
-        // TODO delete tmp files
-//        if(remove(location+'directory') != 0) {
-//            throw std::runtime_error('Error deleting file');
-//        }
-//        if(remove(location+'triples') != 0) {
-//            throw std::runtime_error('Error deleting file');
-//        }
-//        if(rmdir(location+"triples") != 0) {
-//            throw std::runtime_error("Error deleting directory");
-//        }
+        unlink((string(location) + "dictionary").c_str());
+        unlink((string(location) + "triples").c_str());
+        rmdir(location.c_str());
 
 
         globalTimer.stop();
