@@ -604,7 +604,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         blocks = nullptr;
 
         // Write contents of buffer file in section.
-        size_t bufsize = 1000;
+        size_t bufsize = 100000;
         vector<char> buffer(bufsize+1, 0);
         in.open(fileName_2, ios::binary | ios::in);
         if (!in.good()) {
@@ -616,7 +616,6 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
             buffer[s] = 0;
             crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), static_cast<size_t>(s));
         }
-        in.close();
         buffer.clear();
 
         crcd.writeCRC(out);
@@ -637,6 +636,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         }
         if (in.is_open()){
             in.close();
+            unlink(fileName_2.c_str());
         }
         for (auto &i : list) {
             delete[] i.second;
@@ -653,12 +653,9 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         out.close();
         unlink(seqloc.c_str());
     }
-    if (out_2.is_open()) {
-        out_2.close();
-        unlink(fileName_2.c_str());
-    }
     if (in.is_open()){
         in.close();
+        unlink(fileName_2.c_str());
     }
     for (auto &i : list) {
         delete[] i.second;
@@ -688,7 +685,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
     ofstream out;
 
     // Temporary file keeping the shared section buffer.
-    string fileName_2 = string(location) + "section_buffer_shared";
+    string fileName_2 = string(location) + "section_buffer_1";
     ofstream out_2;
 
     ifstream in; //!< Input stream for writing from buffer to shared section.
@@ -984,7 +981,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         blocks = nullptr;
 
         // Write contents of buffer file in section.
-        size_t bufsize = 1000;
+        size_t bufsize = 100000;
         vector<char> buffer(bufsize+1, 0);
         in.open(fileName_2, ios::binary | ios::in);
         if (!in.good()) {
@@ -996,7 +993,6 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
             buffer[s] = 0;
             crcd.writeData(out, reinterpret_cast<unsigned char *>(buffer.data()), static_cast<size_t>(s));
         }
-        in.close();
         buffer.clear();
 
         crcd.writeCRC(out);
@@ -1024,12 +1020,9 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         out.close();
         unlink(seqloc.c_str());
     }
-    if (out_2.is_open()) {
-        out_2.close();
-        unlink(fileName_2.c_str());
-    }
     if (in.is_open()){
         in.close();
+        unlink(fileName_2.c_str());
     }
     for (auto &i : list) {
         delete[] i.second;
