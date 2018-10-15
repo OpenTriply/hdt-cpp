@@ -152,4 +152,11 @@ void LogSequence2Disk::resizeData(size_t numElements) {
     data->resize(numElements);
 }
 
+void LogSequence2Disk::trimToSize() {
+    size_t totalSize = numElementsFor(numbits, numentries);
+    if(totalSize != this->data->getNumberOfElements()) {
+        resizeData(totalSize);
+    }
+}
+
 }

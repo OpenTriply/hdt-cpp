@@ -113,6 +113,7 @@ public:
     //! Resizes data.
     //! \param numElements the new size of data.
     void resizeData(size_t numElements);
+    void trimToSize();
 };
 
 }
