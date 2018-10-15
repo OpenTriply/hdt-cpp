@@ -237,8 +237,8 @@ void BasicHDT::cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, P
         FileMap *mappedTriples = new FileMap(triplesFileName.c_str());
         this->triples->load(mappedTriples->getPtr(), mappedTriples->getPtr()+mappedTriples->getMappedSize(), listener);
 
-//        cout << "Generating header" << endl;
-//        fillHeader(baseUri);
+        cout << "Generating header" << endl;
+        fillHeader(baseUri);
 //		delete mappedDict;
 //		delete mappedTriples;
 	} catch (std::exception& e) {
@@ -420,7 +420,12 @@ void BasicHDT::fillHeader(const string& baseUri) {
 	string statisticsNode = "_:statistics";
 	string publicationInfoNode = "_:publicationInformation";
 
-	uint64_t origSize = header->getPropertyLong(statisticsNode.c_str(), HDTVocabulary::ORIGINAL_SIZE.c_str());
+    uint64_t origSize;
+	try {
+         origSize = header->getPropertyLong(statisticsNode.c_str(), HDTVocabulary::ORIGINAL_SIZE.c_str());
+	} catch(std::exception& e) {
+        origSize = 0;
+	}
 
 	header->clear();
 
@@ -449,7 +454,7 @@ void BasicHDT::fillHeader(const string& baseUri) {
 	triples->populateHeader(*header, triplesNode);
 
 	// Sizes
-	header->insert(statisticsNode, HDTVocabulary::ORIGINAL_SIZE, origSize);
+	if(origSize) header->insert(statisticsNode, HDTVocabulary::ORIGINAL_SIZE, origSize);
 	header->insert(statisticsNode, HDTVocabulary::HDT_SIZE, getDictionary()->size() + getTriples()->size());
 
 	// Current time
