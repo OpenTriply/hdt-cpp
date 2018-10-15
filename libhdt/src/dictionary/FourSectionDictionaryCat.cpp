@@ -1008,6 +1008,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         }
         if (in.is_open()){
             in.close();
+            unlink(fileName_2.c_str());
         }
         for (auto &i : list) {
             delete[] i.second;
