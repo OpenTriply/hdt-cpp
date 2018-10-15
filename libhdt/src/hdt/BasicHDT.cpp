@@ -60,6 +60,7 @@
 
 #include "../triples/PlainTriples.hpp"
 #include "../triples/BitmapTriples.hpp"
+#include "../triples/BitmapTriplesCat.hpp"
 #include "../triples/TripleOrderConvert.hpp"
 
 #include "../third/gzstream.h"
@@ -191,11 +192,60 @@ void BasicHDT::cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, P
 	if(baseUri.at(baseUri.length()-1)!='>')
 		baseUri.append(">");
 
-	cout << "Generating dictionary" << endl;
-	cout << location << endl;
-	FourSectionDictionaryCat *dictionaryCat = new FourSectionDictionaryCat(location);
-	dictionaryCat->cat(hdt1->getDictionary(), hdt2->getDictionary(), listener);
-	delete dictionaryCat;
+	try {
+
+        cout << "Generating dictionary" << endl;
+		FourSectionDictionaryCat *dictionaryCat = new FourSectionDictionaryCat(location);
+		dictionaryCat->cat(hdt1->getDictionary(), hdt2->getDictionary(), listener);
+
+		cout << "Generating triples" << endl;
+
+		BitmapTriplesIteratorCat *it = new BitmapTriplesIteratorCat(hdt1->getTriples(), hdt2->getTriples(), dictionaryCat);
+		BitmapTriplesCat *bitmapTriplesCat = new BitmapTriplesCat(location);
+		bitmapTriplesCat->cat(it, listener);
+
+        delete dictionaryCat;
+        delete bitmapTriplesCat;
+        delete it;
+
+        unlink((string(location) + "P1").c_str());
+        unlink((string(location) + "P1Types").c_str());
+        unlink((string(location) + "P2").c_str());
+        unlink((string(location) + "P2Types").c_str());
+        unlink((string(location) + "SH1").c_str());
+        unlink((string(location) + "SH1Types").c_str());
+        unlink((string(location) + "SH2").c_str());
+        unlink((string(location) + "SH2Types").c_str());
+        unlink((string(location) + "S1").c_str());
+        unlink((string(location) + "S1Types").c_str());
+        unlink((string(location) + "S2").c_str());
+        unlink((string(location) + "S2Types").c_str());
+        unlink((string(location) + "O1").c_str());
+        unlink((string(location) + "O1Types").c_str());
+        unlink((string(location) + "O2").c_str());
+        unlink((string(location) + "O2Types").c_str());
+        unlink((string(location) + "mapping_back_1").c_str());
+        unlink((string(location) + "mapping_back_2").c_str());
+        unlink((string(location) + "mapping_back_type_1").c_str());
+        unlink((string(location) + "mapping_back_type_2").c_str());
+
+        string dictFileName = string(location) + "dictionary";
+        FileMap *mappedDict = new FileMap(dictFileName.c_str());
+        this->dictionary->load(mappedDict->getPtr(), mappedDict->getPtr()+mappedDict->getMappedSize(), listener);
+
+        string triplesFileName = string(location) + "triples";
+        FileMap *mappedTriples = new FileMap(triplesFileName.c_str());
+        this->triples->load(mappedTriples->getPtr(), mappedTriples->getPtr()+mappedTriples->getMappedSize(), listener);
+
+//        cout << "Generating header" << endl;
+//        fillHeader(baseUri);
+//		delete mappedDict;
+//		delete mappedTriples;
+	} catch (std::exception& e) {
+
+	}
+	ControlInformation controlInformation;
+
 
 }
 
