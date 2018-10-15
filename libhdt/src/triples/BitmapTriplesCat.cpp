@@ -1,156 +1,249 @@
+#include <unistd.h>
 #include "BitmapTriplesCat.hpp"
 
 namespace hdt {
 
-BitmapTriplesCat::BitmapTriplesCat()
-    : BitmapTriples()
+BitmapTriplesCat::BitmapTriplesCat(const char *location) : location(location)
 {
-}
-
-BitmapTriplesCat::BitmapTriplesCat(HDTSpecification &spec)
-    : BitmapTriples(spec)
-{
+    vectorY = nullptr;
+    vectorZ = nullptr;
+    bitY = nullptr;
+    bitZ = nullptr;
 }
 
 BitmapTriplesCat::~BitmapTriplesCat()
 {
+    delete vectorY;
+    vectorY = nullptr;
+
+    delete vectorZ;
+    vectorZ = nullptr;
+
+    delete bitY;
+    bitY = nullptr;
+
+    delete bitZ;
+    bitZ = nullptr;
 }
 
-void BitmapTriplesCat::cat(Triples* hdt1, Triples* hdt2, FourSectionDictionaryCat* dict, ProgressListener* listener)
+void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
 {
-    BitmapTriplesIteratorCat* joinIterator = new BitmapTriplesIteratorCat(hdt1, hdt2, dict);
-    TriplesList* triplesList = new TriplesList();
-    triplesList->insert(joinIterator);
-    triplesList->sort(this->getOrder(), listener);
-    triplesList->removeDuplicates(listener);
-    this->load(*triplesList, listener);
+    string triplesFileName = string(location) + "triples";
 
-    delete triplesList;
-    delete joinIterator;
+    ofstream outFinal;
+    ControlInformation *ci = nullptr;
+
+    try {
+        size_t number = it->estimatedNumResults();
+
+        string fileNameY = string(location) + "vectorY";
+        vectorY = new LogSequence2Disk(fileNameY.c_str(), bits(number), number);
+
+        string fileNameZ = string(location) + "vectorZ";
+        vectorZ = new LogSequence2Disk(fileNameZ.c_str(), bits(number), number);
+
+        bitY = new BitSequence375();
+        bitZ = new BitSequence375();
+
+        size_t lastX = 0, lastY = 0, lastZ = 0;
+        size_t x, y, z;
+
+        size_t numTriples = 0;
+
+        while (it->hasNext()) {
+            TripleID *tripleID = it->next();
+
+            swapComponentOrder(tripleID, SPO, SPO);
+
+            x = tripleID->getSubject();
+            y = tripleID->getPredicate();
+            z = tripleID->getObject();
+
+            if (x == 0 || y == 0 || z == 0) {
+                cerr << "ERROR: Triple with at least one component zero." << endl;
+                continue;
+            }
+
+            if (numTriples == 0) {
+                // First triple
+                vectorY->push_back(y);
+                vectorZ->push_back(z);
+            } else if (x != lastX) {
+                if (x != lastX + 1) {
+                    throw std::runtime_error("Error: The subjects must be correlative.");
+                }
+                bitY->append(true);
+                vectorY->push_back(y);
+
+                bitZ->append(true);
+                vectorZ->push_back(z);
+            } else if (y != lastY) {
+                if (y < lastY) {
+                    throw std::runtime_error("Error: The predicates must be in increasing order.");
+                }
+
+                // Y changed
+                bitY->append(false);
+                vectorY->push_back(y);
+
+                bitZ->append(true);
+                vectorZ->push_back(z);
+            } else {
+                if (z <= lastZ) {
+                    throw std::runtime_error("Error, The objects must be in increasing order.");
+                }
+
+                // Z changed
+                bitZ->append(false);
+                vectorZ->push_back(z);
+            }
+
+            lastX = x;
+            lastY = y;
+            lastZ = z;
+
+            NOTIFYCOND(listener, "Converting to BitmapTriples", numTriples, number);
+            numTriples++;
+        }
+
+        if(numTriples > 0) {
+            bitY->append(true);
+            bitZ->append(true);
+        }
+
+        vectorY->reduceBits();
+        vectorZ->trimToSize();
+
+        outFinal.open(triplesFileName, ios::binary | ios::out | ios::trunc);
+        if(!outFinal.good()) {
+            throw std::runtime_error("Error opening file to save the triples.");
+        }
+
+        // Write Control Information
+        ci = new ControlInformation();
+        ci->setFormat(getType());
+        ci->setUint("order", SPO);
+        ci->save(outFinal);
+        //TODO: check if more C.I. needs to be written
+
+        // Write bitmap triples arrays.
+        IntermediateListener iListener(listener);
+        iListener.setRange(0,5);
+        iListener.notifyProgress(0, "BitmapTriplesCat saving Bitmap Y");
+        bitY->save(outFinal);
+
+        iListener.setRange(5,15);
+        iListener.notifyProgress(0, "BitmapTriplesCat saving Bitmap Z");
+        bitZ->save(outFinal);
+
+        iListener.setRange(15,30);
+        iListener.notifyProgress(0, "BitmapTriplesCat saving Stream Y");
+        vectorY->save(outFinal);
+
+        iListener.setRange(30,100);
+        iListener.notifyProgress(0, "BitmapTriplesCat saving Stream Z");
+        vectorZ->save(outFinal);
+
+    } catch(std::exception& e) {
+        if(outFinal.is_open()) {
+            outFinal.close();
+        }
+        delete ci;
+        unlink(triplesFileName.c_str());
+        cout << "ERROR: " << e.what() << endl;
+    }
+
+    // Clean-up
+    if(outFinal.is_open()) {
+        outFinal.close();
+    }
+    delete ci;
 }
 
-BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* hdt1, Triples* hdt2, FourSectionDictionaryCat* dictCat)
+BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* triplesHDT1, Triples* triplesHDT2, FourSectionDictionaryCat* dictCat)
     : count(1)
 {
+    this->triplesHDT1 = triplesHDT1;
+    this->triplesHDT2 = triplesHDT2;
     this->dictionaryCat = dictCat;
-    this->hdt1 = hdt1;
-    this->hdt2 = hdt2;
-    arrayOfTriples = getTripleID((size_t)1);
+
+    // Get triples with subject ID = 1
+    arrayOfTriples = getTripleID(static_cast<size_t >(1));
+    // Sort
+    sort(SPO);
+    // Remove duplicates
+    removeDuplicates();
+    // Set iterator
     triplesIterator = arrayOfTriples.begin();
+    // Increase subject ID counter
     count++;
 }
 
-BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() {
-    cleanArrayOfTriples();
-}
+BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() = default;
 
-bool BitmapTriplesIteratorCat::hasNext()
+    bool BitmapTriplesIteratorCat::hasNext()
 {
-    if (count < dictionaryCat->getMappingS()->getSize()) {
-        return true;
-    }
-    else {
-        if (triplesIterator != arrayOfTriples.end()) {
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
+    return count < dictionaryCat->getMappingS()->getSize() || triplesIterator != arrayOfTriples.end();
 }
 
 TripleID* BitmapTriplesIteratorCat::next()
 {
     TripleID* ret;
     if (triplesIterator == arrayOfTriples.end()) {
-        cleanArrayOfTriples();
+        arrayOfTriples.clear();
+        // Get next set of of triples with subject ID assigned to count.
         arrayOfTriples = getTripleID(count);
+        // Sort
+        sort(SPO);
+        // Remove Duplicates
+        removeDuplicates();
+        // Set iterator
         triplesIterator = arrayOfTriples.begin();
+        // Increase subject ID counter.
         count++;
     }
-    ret = *triplesIterator;
+    // Dereference and reference to cast iterator type into TripleID pointer.
+    ret = &*triplesIterator;
+    // Move to next position.
     triplesIterator++;
+
     return ret;
-}
-
-bool BitmapTriplesIteratorCat::hasPrevious()
-{
-    return false;
-}
-
-TripleID* BitmapTriplesIteratorCat::previous()
-{
-    return nullptr;
-}
-
-void BitmapTriplesIteratorCat::goToStart()
-{
 }
 
 size_t BitmapTriplesIteratorCat::estimatedNumResults()
 {
-    IteratorTripleID *it1 = hdt1->searchAll();
-    IteratorTripleID *it2 = hdt2->searchAll();
+    IteratorTripleID *it1 = triplesHDT1->searchAll();
+    IteratorTripleID *it2 = triplesHDT2->searchAll();
     size_t num = it1->estimatedNumResults() + it2->estimatedNumResults();
     delete it1;
     delete it2;
     return num;
 }
 
-ResultEstimationType BitmapTriplesIteratorCat::numResultEstimation()
+vector<TripleID> BitmapTriplesIteratorCat::getTripleID(size_t count)
 {
-    return UNKNOWN;
-}
-
-TripleComponentOrder BitmapTriplesIteratorCat::getOrder()
-{
-    return Unknown;
-}
-
-bool BitmapTriplesIteratorCat::canGoTo()
-{
-    return false;
-}
-
-void BitmapTriplesIteratorCat::goTo(unsigned int pos)
-{
-}
-
-void BitmapTriplesIteratorCat::skip(unsigned int pos)
-{
-}
-
-bool BitmapTriplesIteratorCat::findNextOccurrence(unsigned int value, unsigned char component)
-{
-    return false;
-}
-
-bool BitmapTriplesIteratorCat::isSorted(TripleComponentRole role)
-{
-    return false;
-}
-
-vector<TripleID*> BitmapTriplesIteratorCat::getTripleID(size_t count)
-{
-    set<TripleID*> tripleSet;
+    vector<TripleID> triples;
     vector<size_t> mapping = dictionaryCat->getMappingS()->getMapping(count);
     vector<CatMappingBackType> mappingType = dictionaryCat->getMappingS()->getType(count);
 
     IteratorTripleID* it = nullptr;
-
     for (size_t i = 0; i < mapping.size(); i++) {
         if (mappingType[i] == 1) {
-            TripleID pattern(mapping[i], (size_t)0, (size_t)0);
-            it = hdt1->search(pattern);
+            TripleID pattern(mapping[i], static_cast<size_t>(0), static_cast<size_t>(0));
+            it = triplesHDT1->search(pattern);
             while (it->hasNext()) {
-                tripleSet.insert(mapTriple(it->next(), (size_t)1));
+                TripleID* tid = mapTriple(it->next(), static_cast<size_t>(1));
+                triples.push_back(*tid);
+                delete tid;
             }
         }
         if (mappingType[i] == 2) {
-            TripleID pattern(mapping[i], (size_t)0, (size_t)0);
-            it = hdt2->search(pattern);
+            TripleID pattern(mapping[i], static_cast<size_t>(0), static_cast<size_t>(0));
+            it = triplesHDT2->search(pattern);
             while (it->hasNext()) {
-                tripleSet.insert(mapTriple(it->next(), (size_t)2));
+                TripleID *tid = mapTriple(it->next(), static_cast<size_t>(2));
+                triples.push_back(*tid);
+                delete tid;
             }
         }
         // Free memory if needed.
@@ -159,7 +252,6 @@ vector<TripleID*> BitmapTriplesIteratorCat::getTripleID(size_t count)
             it = nullptr;
         }
     }
-    vector<TripleID*> triples(tripleSet.begin(), tripleSet.end());
     return triples;
 }
 
@@ -189,9 +281,7 @@ size_t BitmapTriplesIteratorCat::mapIdSection(size_t id, CatMapping* catMappingS
             return catMapping->getMapping(id - catMappingShared->getSize() - 1);
         }
         else {
-            IteratorUCharString *shared = dictionaryCat->getShared();
-            size_t ret = catMapping->getMapping(id - catMappingShared->getSize() - 1) + shared->getNumberOfElements();
-            delete shared;
+            size_t ret = catMapping->getMapping(id - catMappingShared->getSize() - 1) + dictionaryCat->getNumSared();
             return ret;
         }
     }
@@ -202,11 +292,4 @@ size_t BitmapTriplesIteratorCat::mapIdPredicate(size_t id, CatMapping* catMappin
     return catMapping->getMapping(id - 1);
 }
 
-void BitmapTriplesIteratorCat::cleanArrayOfTriples() {
-    for (vector<TripleID*>::iterator pObj = arrayOfTriples.begin();
-         pObj != arrayOfTriples.end(); ++pObj) {
-        delete *pObj;
-    }
-    arrayOfTriples.clear();
-}
 }
