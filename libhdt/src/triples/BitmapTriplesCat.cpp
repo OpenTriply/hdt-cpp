@@ -29,6 +29,8 @@ BitmapTriplesCat::~BitmapTriplesCat()
 void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
 {
     string triplesFileName = string(location) + "triples";
+    string fileNameY = string(location) + "vectorY";
+    string fileNameZ = string(location) + "vectorZ";
 
     ofstream outFinal;
     ControlInformation *ci = nullptr;
@@ -36,10 +38,8 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
     try {
         size_t number = it->estimatedNumResults();
 
-        string fileNameY = string(location) + "vectorY";
         vectorY = new LogSequence2Disk(fileNameY.c_str(), bits(number), number);
 
-        string fileNameZ = string(location) + "vectorZ";
         vectorZ = new LogSequence2Disk(fileNameZ.c_str(), bits(number), number);
 
         bitY = new BitSequence375();
@@ -149,7 +149,8 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
             outFinal.close();
         }
         delete ci;
-        unlink(triplesFileName.c_str());
+        unlink(fileNameY.c_str());
+        unlink(fileNameZ.c_str());
         cout << "ERROR: " << e.what() << endl;
     }
 
@@ -158,6 +159,8 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
         outFinal.close();
     }
     delete ci;
+    unlink(fileNameY.c_str());
+    unlink(fileNameZ.c_str());
 }
 
 BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* triplesHDT1, Triples* triplesHDT2, FourSectionDictionaryCat* dictCat)
