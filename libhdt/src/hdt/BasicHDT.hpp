@@ -45,6 +45,7 @@ private:
 	string fileName;
 
 	FileMap *mappedHDT, *mappedIndex;
+	FileMap *mappedDict, *mappedTriples; //!< for hdtCat
 
 	void createComponents();
 	void deleteComponents();

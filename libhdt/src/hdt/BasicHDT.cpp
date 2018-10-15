@@ -72,11 +72,11 @@ using namespace std;
 namespace hdt {
 
 
-BasicHDT::BasicHDT() : mappedHDT(NULL), mappedIndex(NULL) {
+BasicHDT::BasicHDT() : mappedHDT(NULL), mappedIndex(NULL), mappedDict(nullptr), mappedTriples(nullptr) {
 	createComponents();
 }
 
-BasicHDT::BasicHDT(HDTSpecification &spec) : mappedHDT(NULL), mappedIndex(NULL) {
+BasicHDT::BasicHDT(HDTSpecification &spec) : mappedHDT(NULL), mappedIndex(NULL), mappedDict(nullptr), mappedTriples(nullptr) {
 	this->spec = spec;
 	createComponents();
 }
@@ -90,6 +90,9 @@ BasicHDT::~BasicHDT() {
     if(mappedIndex) {
        delete mappedIndex;
     }
+
+    delete mappedDict;
+    delete mappedTriples;
 }
 
 void BasicHDT::createComponents() {
@@ -192,21 +195,28 @@ void BasicHDT::cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, P
 	if(baseUri.at(baseUri.length()-1)!='>')
 		baseUri.append(">");
 
+    FourSectionDictionaryCat *dictionaryCat = nullptr;
+    BitmapTriplesIteratorCat *it = nullptr;
+    BitmapTriplesCat *bitmapTriplesCat = nullptr;
+
 	try {
 
         cout << "Generating dictionary" << endl;
-		FourSectionDictionaryCat *dictionaryCat = new FourSectionDictionaryCat(location);
+		dictionaryCat = new FourSectionDictionaryCat(location);
 		dictionaryCat->cat(hdt1->getDictionary(), hdt2->getDictionary(), listener);
 
 		cout << "Generating triples" << endl;
 
-		BitmapTriplesIteratorCat *it = new BitmapTriplesIteratorCat(hdt1->getTriples(), hdt2->getTriples(), dictionaryCat);
-		BitmapTriplesCat *bitmapTriplesCat = new BitmapTriplesCat(location);
+		it = new BitmapTriplesIteratorCat(hdt1->getTriples(), hdt2->getTriples(), dictionaryCat);
+		bitmapTriplesCat = new BitmapTriplesCat(location);
 		bitmapTriplesCat->cat(it, listener);
 
         delete dictionaryCat;
+        dictionaryCat = nullptr;
         delete bitmapTriplesCat;
+        bitmapTriplesCat = nullptr;
         delete it;
+        it = nullptr;
 
         unlink((string(location) + "P1").c_str());
         unlink((string(location) + "P1Types").c_str());
@@ -230,23 +240,22 @@ void BasicHDT::cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, P
         unlink((string(location) + "mapping_back_type_2").c_str());
 
         string dictFileName = string(location) + "dictionary";
-        FileMap *mappedDict = new FileMap(dictFileName.c_str());
+        mappedDict = new FileMap(dictFileName.c_str());
         this->dictionary->load(mappedDict->getPtr(), mappedDict->getPtr()+mappedDict->getMappedSize(), listener);
 
         string triplesFileName = string(location) + "triples";
-        FileMap *mappedTriples = new FileMap(triplesFileName.c_str());
+        mappedTriples = new FileMap(triplesFileName.c_str());
         this->triples->load(mappedTriples->getPtr(), mappedTriples->getPtr()+mappedTriples->getMappedSize(), listener);
 
         cout << "Generating header" << endl;
         fillHeader(baseUri);
-//		delete mappedDict;
-//		delete mappedTriples;
+
 	} catch (std::exception& e) {
-
+        delete dictionaryCat;
+        delete bitmapTriplesCat;
+        delete it;
+        throw e;
 	}
-	ControlInformation controlInformation;
-
-
 }
 
 ModifiableDictionary* BasicHDT::getLoadDictionary() {
