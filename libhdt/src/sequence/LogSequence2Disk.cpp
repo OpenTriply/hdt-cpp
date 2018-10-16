@@ -112,7 +112,7 @@ void LogSequence2Disk::save(std::ostream &out) {
 
     // Write data
     size_t numWords = numElementsFor(numbits, numentries);
-    for(size_t i=0; i<numWords-1; i++){
+    for(size_t i=0; (numWords != 0 && i < numWords-1); i++){
         size_t num = this->data->get(i);
         crcd.writeData(out, reinterpret_cast<unsigned char *>(&num), sizeof(num));
     }

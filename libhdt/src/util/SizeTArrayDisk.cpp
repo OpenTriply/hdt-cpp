@@ -110,6 +110,7 @@ void SizeTArrayDisk::resize(size_t newNumElements) {
     this->unmapFile();
     this->numElements = newNumElements;
     mappedSize = newNumElements * sizeof(size_t);
+    if(mappedSize == 0) return;
 
     // Stretch file
     if(lseek(fd, mappedSize-1, SEEK_SET) == -1){
