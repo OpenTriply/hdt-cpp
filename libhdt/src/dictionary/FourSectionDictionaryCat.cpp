@@ -458,7 +458,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                     // Flush buffer to file if expected new buffer length exceeds the reserved size.
                     if((bytes-written_bytes+currentLength+11) > reservedSize) {
                         out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
-                        section_buffer.clear();
+                        fill(section_buffer.begin(), section_buffer.end(), 0);
                         written_bytes+=(bytes-written_bytes);
 
                         // Check if string can fit the whole buffer
@@ -767,7 +767,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                 // Flush buffer to file if expected new buffer length exceeds the reserved size.
                 if((bytes-written_bytes+currentLength+11) > reservedSize) {
                     out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
-                    section_buffer.clear();
+                    fill(section_buffer.begin(), section_buffer.end(), 0);
                     written_bytes+=(bytes-written_bytes);
 
                     // Check if string is not bigger than buffer size.
