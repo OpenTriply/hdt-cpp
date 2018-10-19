@@ -263,6 +263,7 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
     string inputFileName;
     ifstream in;
     ControlInformation *ci = nullptr;
+    std::exception* err = nullptr;
     try {
 
         outFinal.open(dictFileName, ios::binary | ios::out | ios::trunc);
@@ -280,14 +281,8 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
 
         const size_t buf_size = 100000;
         vector<char> buffer(buf_size+1, 0);
-        for(int i=1; i<=4; i++) {
-            int j = i;
 
-            if(i == 4) {
-                j = 3;
-            } else if(j == 3) {
-                j = 4;
-            }
+        for (auto &j : {1,2,4,3}) {
 
             inputFileName = string(location) + "section" + to_string(j);
             in.open(inputFileName, ios::binary | ios::in);
@@ -306,21 +301,20 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
         }
 
     } catch (std::exception& e) {
-        delete ci;
-        if(outFinal.is_open())
-            outFinal.close();
-        if(in.is_open()) {
-            in.close();
-            unlink(inputFileName.c_str());
-        }
-        cout << "ERROR: " << e.what() << endl;
+        err=&e;
     }
 
     // Clean-up
-
     delete ci;
+    if(in.is_open()) {
+        in.close();
+        unlink(inputFileName.c_str());
+    }
+
     if(outFinal.is_open())
         outFinal.close();
+
+    if (err) throw *err;
 
     /// Store inverse mappings.
     mappingS = new CatMappingBack(location, numSubjects+numShared);
@@ -386,6 +380,8 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
     // Vector of two pairs (id and string of term) to be compared.
     vector <pair<size_t, unsigned char *>> list;
 
+    std::exception* err = nullptr;
+
     try {
         seqloc = string(location) + "LogSequence2Disk" + to_string(type); //<! Filename for blocks.
         blocks = new LogSequence2Disk(seqloc.c_str(), static_cast<unsigned int>(numbits), numentries / blocksize);
@@ -415,160 +411,126 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                 // Sort the two strings.
                 sort(list.begin(), list.end(), sortBySec);
 
-                bool skip = false; //!< Flag for skipping common terms
-                if (list[0].first == 1) {
-                    if (count1 == skipSection1) {
-                        skip = true;
-                        if (it1->hasNext()) {
-                            delete[] list[0].second;
-                            list[0].second = it1->next();
-                            count1++;
+
+                bool isFirst = list[0].first == 1;
+                ssize_t *skipSection = (isFirst) ? &skipSection1 : &skipSection2;
+                size_t *count = (isFirst) ? &count1 : &count2;
+                IteratorUCharString * it = (isFirst) ? it1 : it2;
+                CatIterator *itCommon = (isFirst) ? it1common : it2common;
+
+                if (*count == *skipSection) {
+
+                    if (it->hasNext()) {
+                        delete[] list[0].second;
+                        list[0].second = it->next();
+                        (*count)++;
+                    } else {
+                        delete[] list[0].second;
+                        list.erase(list.begin());
+                    }
+                    if (itCommon->hasNext()) {
+                        (*skipSection) = itCommon->next();
+                    }
+                    continue;
+                }
+
+                delete[] str;
+
+                str = list[0].second;
+                currentLength = strlen((char *) str);
+
+                // Flush buffer to file if expected new buffer length exceeds the reserved size.
+                if((bytes-written_bytes+currentLength+11) > reservedSize) {
+                    out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
+                    fill(section_buffer.begin(), section_buffer.end(), 0);
+                    written_bytes+=(bytes-written_bytes);
+
+                    // Check if string can fit the whole buffer
+                    if (currentLength + 11 > reservedSize){
+                        section_buffer.resize(currentLength+11);
+                    } else if (section_buffer.size() > reservedSize){
+                        section_buffer.resize(reservedSize);
+                    }
+                }
+
+                if((numElements % blocksize) == 0) {
+                    blocks->push_back(bytes);
+                    numBlocks++;
+                    // The string is explicitly copied to the encoded sequence.
+                    strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str, currentLength);
+                    bytes+=currentLength;
+                }
+                else {
+                    // Regular string
+
+                    // Calculate the length of the common prefix
+                    size_t delta = 0;
+                    auto *prev = (unsigned char *)previousStr.c_str();
+                    size_t lstr1 = previousStr.length();
+                    size_t lstr2 = currentLength;
+                    size_t length = lstr1 < lstr2 ? lstr1 : lstr2;
+
+                    while( (delta<length) && (str[delta] == prev[delta])) {
+                        delta++;
+                    }
+
+                    // The prefix is differentially encoded
+                    bytes += csd::VByte::encode(section_buffer.data()+bytes-written_bytes, delta);
+
+                    // The suffix is copied to the sequence
+                    strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str+delta, currentLength-delta);
+                    bytes+=currentLength-delta;
+                }
+
+                // Add terminator of string.
+                section_buffer.push_back('\0');
+                bytes++;
+
+                // Save previous
+                previousStr.assign((char *)str);
+
+                if(list.size() >= 2) {
+                    s1 = string(reinterpret_cast<char *>(list[0].second));
+                    s2 = string(reinterpret_cast<char *>(list[1].second));
+                }
+                if (list.size() >= 2 && s1 == s2) {
+                    mappingHdt1->set(count1++, numElements + 1, type);
+                    mappingHdt2->set(count2++, numElements + 1, type);
+
+                    freeStr((list[0].second));
+                    if (it1->hasNext()) {
+                        list[0] = make_pair(1, it1->next());
+                        delete[] list[1].second;
+                        if (it2->hasNext()) {
+                            list[1] = make_pair(2, it2->next());
                         } else {
-                            delete[] list[0].second;
-                            list.erase(list.begin());
+                            list.erase(list.begin() + 1);
                         }
-                        if (it1common->hasNext()) {
-                            skipSection1 = it1common->next();
+                    } else {
+                        list.erase(list.begin());
+                        freeStr((list[0].second));
+                        if (it2->hasNext()) {
+                            list[0] = make_pair(2, it2->next());
+                        } else {
+                            list.erase(list.begin());
                         }
                     }
                 } else {
-                    if (count2 == skipSection2) {
-                        skip = true;
-                        if (it2->hasNext()) {
-                            delete[] list[0].second;
-                            list[0].second = it2->next();
-                            count2++;
-                        } else {
-                            delete[] list[0].second;
-                            list.erase(list.begin());
-                        }
-                        if (it2common->hasNext()) {
-                            skipSection2 = it2common->next();
-                        }
+                    CatMapping *mappingHdt = isFirst ? mappingHdt1 : mappingHdt2;
+                    mappingHdt->set((*count)++, numElements + 1, type);
+
+                    freeStr((list[0].second));
+                    if (it->hasNext()) {
+                        list[0] = make_pair(isFirst?1:2, it->next());
+                    } else {
+                        list.erase(list.begin());
                     }
                 }
 
-                if (!skip) {
-
-                    delete[] str;
-
-                    str = list[0].second;
-                    currentLength = strlen((char *) str);
-
-                    // Flush buffer to file if expected new buffer length exceeds the reserved size.
-                    if((bytes-written_bytes+currentLength+11) > reservedSize) {
-                        out_2.write(reinterpret_cast<char *>(section_buffer.data()), bytes-written_bytes);
-                        fill(section_buffer.begin(), section_buffer.end(), 0);
-                        written_bytes+=(bytes-written_bytes);
-
-                        // Check if string can fit the whole buffer
-                        if (currentLength + 11 > reservedSize){
-                            section_buffer.resize(currentLength+11);
-                        } else if (section_buffer.size() > reservedSize){
-                            section_buffer.resize(reservedSize);
-                        }
-                    }
-
-                    if((numElements % blocksize) == 0) {
-                        blocks->push_back(bytes);
-                        numBlocks++;
-                        // The string is explicitly copied to the encoded sequence.
-                        strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str, currentLength);
-                        bytes+=currentLength;
-                    }
-                    else {
-                        // Regular string
-
-                        // Calculate the length of the common prefix
-                        size_t delta = 0;
-                        auto *prev = (unsigned char *)previousStr.c_str();
-                        size_t lstr1 = previousStr.length();
-                        size_t lstr2 = currentLength;
-                        size_t length = lstr1 < lstr2 ? lstr1 : lstr2;
-
-                        while( (delta<length) && (str[delta] == prev[delta])) {
-                            delta++;
-                        }
-
-                        // The prefix is differentially encoded
-                        bytes += csd::VByte::encode(section_buffer.data()+bytes-written_bytes, delta);
-
-                        // The suffix is copied to the sequence
-                        strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str+delta, currentLength-delta);
-                        bytes+=currentLength-delta;
-                    }
-
-                    // Add terminator of string.
-                    section_buffer.push_back('\0');
-                    bytes++;
-
-                    // Save previous
-                    previousStr.assign((char *)str);
-
-                    if(list.size() >= 2) {
-                        s1 = string(reinterpret_cast<char *>(list[0].second));
-                        s2 = string(reinterpret_cast<char *>(list[1].second));
-                    }
-                    if (list.size() >= 2 && s1 == s2) {
-                        bool removed = false;
-                        mappingHdt1->set(count1, numElements + 1, type);
-                        count1++;
-                        mappingHdt2->set(count2, numElements + 1, type);
-                        count2++;
-
-                        if (it1->hasNext()) {
-                            freeStr((list[0].second));
-                            list[0] = make_pair(1, it1->next());
-                        } else {
-                            freeStr((list[0].second));
-                            list.erase(list.begin());
-                            removed = true;
-                        }
-                        if (it2->hasNext()) {
-                            if (removed) {
-                                freeStr((list[0].second));
-                                list[0] = make_pair(2, it2->next());
-                            } else {
-                                delete[] list[1].second;
-                                list[1] = make_pair(2, it2->next());
-                            }
-                        } else {
-                            if (removed) {
-                                freeStr((list[0].second));
-                                list.erase(list.begin());
-                            } else {
-                                delete[] list[1].second;
-                                list.erase(list.begin() + 1);
-                            }
-                        }
-                    } else if (list[0].first == 1) {
-                        mappingHdt1->set(count1, numElements + 1, type);
-                        count1++;
-
-                        if (it1->hasNext()) {
-                            freeStr((list[0].second));
-                            list[0] = make_pair(1, it1->next());
-                        } else {
-                            freeStr((list[0].second));
-                            list.erase(list.begin());
-                        }
-                    } else if (list[0].first == 2) {
-                        mappingHdt2->set(count2, numElements + 1, type);
-                        count2++;
-
-                        if (it2->hasNext()) {
-                            freeStr((list[0].second));
-                            list[0] = make_pair(2, it2->next());
-                        } else {
-                            freeStr((list[0].second));
-                            list.erase(list.begin());
-                        }
-                    }
-
-                    // New string processed
-                    numElements++;
-                }
+                // New string processed
+                numElements++;
             }
+
         }
 
         blocks->push_back(bytes);
@@ -621,27 +583,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         crcd.writeCRC(out);
 
     } catch (std::exception& e) {
-        // Clean up
-        delete it1;
-        delete it2;
-        delete it1common;
-        delete it2common;
-        if(out.is_open()) {
-            out.close();
-            unlink(seqloc.c_str());
-        }
-        if (out_2.is_open()) {
-            out_2.close();
-            unlink(fileName_2.c_str());
-        }
-        if (in.is_open()){
-            in.close();
-            unlink(fileName_2.c_str());
-        }
-        for (auto &i : list) {
-            delete[] i.second;
-        }
-        cout << "ERROR: " << e.what() << endl;
+        err = &e;
     }
 
     // Clean up
@@ -653,13 +595,18 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
         out.close();
         unlink(seqloc.c_str());
     }
-    if (in.is_open()){
+    if (out_2.is_open()) {
+        out_2.close();
+        unlink(fileName_2.c_str());
+    }
+    else if (in.is_open()){
         in.close();
         unlink(fileName_2.c_str());
     }
     for (auto &i : list) {
         delete[] i.second;
     }
+    if (err) throw *err;
 }
 
 void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, Dictionary *dict2,
@@ -696,6 +643,8 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
 
     // Vector of pairs (id and string of term) to be compared / max capacity=4.
     vector <pair<size_t, unsigned char *>> list;
+
+    std::exception* err = nullptr;
 
     try {
 
@@ -879,9 +828,9 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     if (count1 == commonShared1Objects2.first){
                         mappingO2->set(commonShared1Objects2.second, numElements+1, CAT_SHARED);
                     }
+                    freeStr(list[0].second);
                     if (it1temp->hasNext()) {
                         count1++;
-                        freeStr(list[0].second);
                         list[0] = make_pair((size_t) 1, it1temp->next());
 
                         if (count1>commonShared1Subjects2.first && itCommonShared1Subjects2->hasNext()){
@@ -892,7 +841,6 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                             commonShared1Objects2 = itCommonShared1Objects2->next();
                         }
                     } else {
-                        freeStr(list[0].second);
                         list.erase(list.begin());
                     }
                 } else if (list[0].first == 2) {
@@ -905,8 +853,8 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     if (count2 == commonShared2Objects1.first){
                         mappingO1->set(commonShared2Objects1.second, numElements+1, CAT_SHARED);
                     }
+                    freeStr(list[0].second);
                     if (it2temp->hasNext()) {
-                        freeStr(list[0].second);
                         list[0] = make_pair((size_t) 2, it2temp->next());
                         count2++;
 
@@ -918,7 +866,6 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                             commonShared2Objects1 = itCommonShared2Objects1->next();
                         }
                     } else {
-                        freeStr(list[0].second);
                         list.erase(list.begin());
                     }
                 } else if (list[0].first == 3){
@@ -998,35 +945,27 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
         crcd.writeCRC(out);
 
     } catch (std::exception& e) {
-        if(out.is_open()) {
-            out.close();
-            unlink(seqloc.c_str());
-        }
-        if (out_2.is_open()) {
-            out_2.close();
-            unlink(fileName_2.c_str());
-        }
-        if (in.is_open()){
-            in.close();
-            unlink(fileName_2.c_str());
-        }
-        for (auto &i : list) {
-            delete[] i.second;
-        }
-        cout << "ERROR: " << e.what() << endl;
+        err = &e;
     }
 
-    // Clean up
     if(out.is_open()) {
         out.close();
         unlink(seqloc.c_str());
     }
-    if (in.is_open()){
+    if (out_2.is_open()) {
+        out_2.close();
+        unlink(fileName_2.c_str());
+    }
+    else if (in.is_open()){
         in.close();
         unlink(fileName_2.c_str());
     }
     for (auto &i : list) {
         delete[] i.second;
+    }
+
+    if (err){
+        throw *err;
     }
 }
 
