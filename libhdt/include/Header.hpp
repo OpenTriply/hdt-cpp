@@ -81,6 +81,7 @@ public:
 			hdt::TripleString *ts = it->next();
 			out = ts->getObject();
 		} else {
+		    delete it;
 		    throw std::runtime_error("Not found");
 		}
 		delete it;
