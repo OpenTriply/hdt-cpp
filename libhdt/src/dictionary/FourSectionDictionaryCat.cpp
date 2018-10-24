@@ -1204,26 +1204,19 @@ void CatCommon::helpNext()
                     }
                     list.erase(list.begin());
                 }
-                break;
+                return;
             }
             else {
-                if (list[0].first == 1) {
-                    if (it1->hasNext()) {
-                        list[0] = make_pair(1, it1->next());
-                        count1++;
-                    }
-                    else {
-                        list.erase(list.begin());
-                    }
+                bool isFirst = list[0].first == 1;
+                IteratorUCharString *it = isFirst ? it1 : it2;
+                size_t *count = isFirst ? &count1 : &count2;
+
+                if (it->hasNext()) {
+                    list[0] = make_pair(isFirst?1:2, it->next());
+                    (*count)++;
                 }
                 else {
-                    if (it2->hasNext()) {
-                        list[0] = make_pair(2, it2->next());
-                        count2++;
-                    }
-                    else {
-                        list.erase(list.begin());
-                    }
+                    list.erase(list.begin());
                 }
             }
         }
@@ -1271,22 +1264,16 @@ size_t CatIterator::next()
         iter_swap(list.begin(), list.begin()+1);
     }
 
+    bool isFirst = list[0].first == 1;
+    CatCommon *it = isFirst ? it1 : it2;
+
     r = list[0].second.first;
-    if (list[0].first == 1) {
-        if (it1->hasNext()) {
-            list[0] = make_pair((size_t)1, it1->next());
-        }
-        else {
-            list.erase(list.begin());
-        }
+
+    if (it->hasNext()) {
+        list[0] = make_pair(isFirst?(size_t)1:(size_t)2, it->next());
     }
     else {
-        if (it2->hasNext()) {
-            list[0] = make_pair((size_t)2, it2->next());
-        }
-        else {
-            list.erase(list.begin());
-        }
+        list.erase(list.begin());
     }
     return r;
 }

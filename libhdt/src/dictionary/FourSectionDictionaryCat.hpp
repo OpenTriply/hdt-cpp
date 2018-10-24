@@ -201,6 +201,9 @@ private:
     size_t count1, count2; //<! Pointers to current positions of each input iterator.
     pair<size_t, size_t> next_t;   //<! A pair of ids that point to common terms.
 
+    //! Auxiliary function that sets the next common pairs in list.
+    void helpNext();
+
 public:
     CatCommon();
     CatCommon(IteratorUCharString* it1, IteratorUCharString* it2);
@@ -211,9 +214,6 @@ public:
     //! Returns the next common pair of ids.
     //! \return A pair of the indices of common terms; one from iterator 1 and one from iterator 2.
     pair<size_t, size_t> next();
-
-     //! Auxiliary function that sets the next common pairs in list.
-    void helpNext();
 };
 
 /*!
