@@ -5,21 +5,13 @@
 
 namespace hdt {
 
-LogSequence2Disk::LogSequence2Disk(const char *location) : LogSequence2Disk(location, 32) {}
-
-LogSequence2Disk::LogSequence2Disk(const char *location, unsigned int numbits) : LogSequence2Disk(location, numbits, 0) {}
-
-LogSequence2Disk::LogSequence2Disk(const char *location, unsigned int numbits, size_t capacity) : numbits(numbits)
-                                                                                                , numentries(0) {
+LogSequence2Disk::LogSequence2Disk(const char *location, unsigned int numbits, size_t capacity, bool initialize)
+        : numbits(numbits), numentries(0) {
     this->maxval = maxVal(numbits);
     size_t totalSize = numElementsFor(numbits, capacity);
     if(totalSize==0) totalSize = 1;
     this->data = new SizeTArrayDisk(location, totalSize);
-}
-
-LogSequence2Disk::LogSequence2Disk(const char *location, unsigned int numbits, size_t capacity, bool initialize) {
-    LogSequence2Disk(location, numbits, capacity);
-    numentries=initialize ? capacity : 0;
+    numentries = initialize ? capacity : 0;
 }
 
 LogSequence2Disk::~LogSequence2Disk() {

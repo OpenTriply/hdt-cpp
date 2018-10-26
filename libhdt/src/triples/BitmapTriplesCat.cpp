@@ -34,6 +34,7 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
 
     ofstream outFinal;
     ControlInformation *ci = nullptr;
+    std::exception *err = nullptr;
 
     try {
         size_t number = it->estimatedNumResults();
@@ -49,6 +50,7 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
         size_t x, y, z;
 
         size_t numTriples = 0;
+
 
         while (it->hasNext()) {
             TripleID *tripleID = it->next();
@@ -145,12 +147,7 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
         vectorZ->save(outFinal);
 
     } catch(std::exception& e) {
-        if(outFinal.is_open()) {
-            outFinal.close();
-        }
-        delete ci;
-        unlink(fileNameY.c_str());
-        unlink(fileNameZ.c_str());
+        err = &e;
         cout << "ERROR: " << e.what() << endl;
     }
 
@@ -161,6 +158,7 @@ void BitmapTriplesCat::cat(IteratorTripleID *it, ProgressListener* listener)
     delete ci;
     unlink(fileNameY.c_str());
     unlink(fileNameZ.c_str());
+    if (err) throw *err;
 }
 
 BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* triplesHDT1, Triples* triplesHDT2, FourSectionDictionaryCat* dictCat)
@@ -184,7 +182,7 @@ BitmapTriplesIteratorCat::BitmapTriplesIteratorCat(Triples* triplesHDT1, Triples
 
 BitmapTriplesIteratorCat::~BitmapTriplesIteratorCat() = default;
 
-    bool BitmapTriplesIteratorCat::hasNext()
+bool BitmapTriplesIteratorCat::hasNext()
 {
     return count < dictionaryCat->getMappingS()->getSize() || triplesIterator != arrayOfTriples.end();
 }
@@ -213,16 +211,6 @@ TripleID* BitmapTriplesIteratorCat::next()
     return ret;
 }
 
-size_t BitmapTriplesIteratorCat::estimatedNumResults()
-{
-    IteratorTripleID *it1 = triplesHDT1->searchAll();
-    IteratorTripleID *it2 = triplesHDT2->searchAll();
-    size_t num = it1->estimatedNumResults() + it2->estimatedNumResults();
-    delete it1;
-    delete it2;
-    return num;
-}
-
 vector<TripleID> BitmapTriplesIteratorCat::getTripleID(size_t count)
 {
     vector<TripleID> triples;
@@ -231,28 +219,17 @@ vector<TripleID> BitmapTriplesIteratorCat::getTripleID(size_t count)
 
     IteratorTripleID* it = nullptr;
     for (size_t i = 0; i < mapping.size(); i++) {
-        if (mappingType[i] == 1) {
+        if (mappingType[i]==1||mappingType[i]==2){
+            bool isFirst = mappingType[i] == 1;
             TripleID pattern(mapping[i], static_cast<size_t>(0), static_cast<size_t>(0));
-            it = triplesHDT1->search(pattern);
+
+            it = (isFirst?triplesHDT1:triplesHDT2)->search(pattern);
             while (it->hasNext()) {
-                TripleID* tid = mapTriple(it->next(), static_cast<size_t>(1));
+                TripleID* tid = mapTriple(it->next(), static_cast<size_t>(isFirst?1:2));
                 triples.push_back(*tid);
                 delete tid;
             }
-        }
-        if (mappingType[i] == 2) {
-            TripleID pattern(mapping[i], static_cast<size_t>(0), static_cast<size_t>(0));
-            it = triplesHDT2->search(pattern);
-            while (it->hasNext()) {
-                TripleID *tid = mapTriple(it->next(), static_cast<size_t>(2));
-                triples.push_back(*tid);
-                delete tid;
-            }
-        }
-        // Free memory if needed.
-        if (it != nullptr) {
             delete it;
-            it = nullptr;
         }
     }
     return triples;
@@ -279,14 +256,11 @@ size_t BitmapTriplesIteratorCat::mapIdSection(size_t id, CatMapping* catMappingS
     if (id <= catMappingShared->getSize()) {
         return catMappingShared->getMapping(id - 1);
     }
+    else if (catMapping->getType(id - catMappingShared->getSize() - 1) == 1) {
+        return catMapping->getMapping(id - catMappingShared->getSize() - 1);
+    }
     else {
-        if (catMapping->getType(id - catMappingShared->getSize() - 1) == 1) {
-            return catMapping->getMapping(id - catMappingShared->getSize() - 1);
-        }
-        else {
-            size_t ret = catMapping->getMapping(id - catMappingShared->getSize() - 1) + dictionaryCat->getNumSared();
-            return ret;
-        }
+        return catMapping->getMapping(id - catMappingShared->getSize() - 1) + dictionaryCat->getNumSared();
     }
 }
 

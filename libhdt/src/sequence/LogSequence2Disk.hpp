@@ -87,10 +87,7 @@ private:
     }
 
 public:
-    LogSequence2Disk(const char *location);
-    LogSequence2Disk(const char *location, unsigned int numbits);
-    LogSequence2Disk(const char *location, unsigned int numbits, size_t capacity);
-    LogSequence2Disk(const char *location, unsigned int numbits, size_t capacity, bool initialize);
+    LogSequence2Disk(const char *location, unsigned int numbits=32, size_t capacity=0, bool initialize=false);
 
     virtual ~LogSequence2Disk();
 
