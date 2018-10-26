@@ -211,6 +211,16 @@ TripleID* BitmapTriplesIteratorCat::next()
     return ret;
 }
 
+size_t BitmapTriplesIteratorCat::estimatedNumResults()
+{
+    IteratorTripleID *it1 = triplesHDT1->searchAll();
+    IteratorTripleID *it2 = triplesHDT2->searchAll();
+    size_t num = it1->estimatedNumResults() + it2->estimatedNumResults();
+    delete it1;
+    delete it2;
+    return num;
+}
+
 vector<TripleID> BitmapTriplesIteratorCat::getTripleID(size_t count)
 {
     vector<TripleID> triples;
