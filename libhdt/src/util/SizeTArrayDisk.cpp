@@ -112,16 +112,6 @@ void SizeTArrayDisk::resize(size_t newNumElements) {
     mappedSize = newNumElements * sizeof(size_t);
     if(mappedSize == 0) return;
 
-    // Stretch file
-    if(lseek(fd, mappedSize-1, SEEK_SET) == -1){
-        throw std::runtime_error("Error in lseek");
-    }
-
-    // Update file size by writing something at the end (i.e. a '\0' char)
-    if(write(fd, "", 1) == -1) {
-        throw std::runtime_error("Error writing last byte of the file");
-    }
-
     // remap
     this->mapFile();
 
