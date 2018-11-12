@@ -154,7 +154,7 @@ void FourSectionDictionary::load(std::istream & input, ControlInformation & ci, 
 	}
 	//this->mapping = ci.getUint("mapping");
 	this->mapping = MAPPING2;
-	//this->sizeStrings = ci.getUint("sizeStrings");
+	this->sizeStrings = ci.getUint("sizeStrings");
 
 	IntermediateListener iListener(listener);
 
@@ -209,7 +209,7 @@ size_t FourSectionDictionary::load(unsigned char *ptr, unsigned char *ptrMax, Pr
 
     //this->mapping = ci.getUint("mapping");
     this->mapping = MAPPING2;
-    //this->sizeStrings = ci.getUint("sizeStrings");
+    this->sizeStrings = ci.getUint("sizeStrings");
 
     iListener.setRange(0,25);
     iListener.notifyProgress(0, "Dictionary read shared area.");

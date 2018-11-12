@@ -45,6 +45,8 @@ FourSectionDictionaryCat::FourSectionDictionaryCat(const char *location) : locat
         blocksize = static_cast<uint32_t>(atoi(blockSizeStr.c_str()));
     }
 
+    sizeStrings = 0;
+
     // Attributes that will be created dynamically:
     mappingS1 = nullptr;
     mappingS2 = nullptr;
@@ -276,7 +278,7 @@ void FourSectionDictionaryCat::cat(Dictionary* dict1, Dictionary* dict2, Progres
         //TODO: add more control information (?)
         ci->setFormat(HDTVocabulary::DICTIONARY_TYPE_FOUR);
         ci->setUint("mapping", MAPPING2);
-//        ci->setUint("sizeStrings", ???);
+        ci->setUint("sizeStrings", this->sizeStrings);
         ci->save(outFinal);
 
         const size_t buf_size = 100000;
@@ -459,6 +461,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                     // The string is explicitly copied to the encoded sequence.
                     strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str, currentLength);
                     bytes+=currentLength;
+                    this->sizeStrings += currentLength;
                 }
                 else {
                     // Regular string
@@ -480,6 +483,7 @@ void FourSectionDictionaryCat::catSection(size_t numentries, CatMappingType type
                     // The suffix is copied to the sequence
                     strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str+delta, currentLength-delta);
                     bytes+=currentLength-delta;
+                    this->sizeStrings += currentLength;
                 }
 
                 // Add terminator of string.
@@ -733,6 +737,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     // The string is explicitly copied to the encoded sequence.
                     strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str, currentLength);
                     bytes+=currentLength;
+                    this->sizeStrings += currentLength;
                 }
                 else {
                     // Regular string
@@ -754,6 +759,7 @@ void FourSectionDictionaryCat::catShared(size_t numentries, Dictionary *dict1, D
                     // The suffix is copied to the sequence
                     strncpy((char*)(section_buffer.data()+bytes-written_bytes), (char*)str+delta, currentLength-delta);
                     bytes+=currentLength-delta;
+                    this->sizeStrings += currentLength;
                 }
 
                 // Add terminator of string.
