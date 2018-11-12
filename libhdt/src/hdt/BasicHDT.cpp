@@ -250,6 +250,12 @@ void BasicHDT::cat(const char *location, string baseUri, HDT *hdt1, HDT *hdt2, P
         cout << "Generating header" << endl;
         fillHeader(baseUri);
 
+        // Original RDF file size is equal to the sum of the original sizes of the input HDTs:
+		uint64_t origSize1 = hdt1->getHeader()->getPropertyLong("_:statistics", HDTVocabulary::ORIGINAL_SIZE.c_str());
+		uint64_t origSize2 = hdt2->getHeader()->getPropertyLong("_:statistics", HDTVocabulary::ORIGINAL_SIZE.c_str());
+		uint64_t origSize = origSize1 + origSize2;
+		header->insert("_:statistics", HDTVocabulary::ORIGINAL_SIZE, origSize);
+
 	} catch (std::exception& e) {
         delete dictionaryCat;
         delete bitmapTriplesCat;
