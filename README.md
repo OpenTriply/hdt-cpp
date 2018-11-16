@@ -27,7 +27,7 @@ dependencies installed:
 - [GNU zip (gzip)](http://www.zlib.net/) Allows GNU zipped RDF input
   files to be ingested, and allows GNU zipped HDT files to be loaded.
 
-  - `sudo apt install gzip` on Debian-based distros (e.g., Ubuntu)
+  - `sudo apt install zlib1g zlib1g-dev` on Debian-based distros (e.g., Ubuntu)
   - `sudo dnf install gzip` on Red Hat-based distros (e.g., Fedora)
 
 - [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
@@ -46,6 +46,10 @@ dependencies installed:
     (e.g., Ubuntu)
   - `sudo dnf install serd serd-devel` on Red Hat-based distros (e.g.,
     Fedora)
+    
+  Sometimes the version of Serd that is distributed by package managers
+  is too old.  In that case, Serd can also be built manually: see
+  https://github.com/drobilla/serd for the installation instructions.
 
 ### Installation
 
@@ -64,6 +68,13 @@ sudo make install
 Sometimes, the above instructions do not result in a working HDT
 installation.  This section enumerates common issues and their
 workaround.
+
+#### Package requirements (serd-0 >= 0.28.0) were not met
+When getting 
+
+    Package requirements (serd-0 >= 0.28.0) were not met: Requested 'serd-0 >= 0.28.0' but version of Serd is 0.X
+
+Serd is not 0.28+, probably because of the package manager. Built it manually at https://github.com/drobilla/serd.
 
 #### `./configure` cannot find Serd
 
