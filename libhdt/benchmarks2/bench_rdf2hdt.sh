@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+# Go to script directory
+pushd "$(dirname "$0")" >/dev/null
+
+# Initialize globals
+rdf_files=()
+parallel=0
+remove=0
+tempfiles=()
+
+function cleanup {
+	trap - SIGTERM
+	for tmp in ${tempfiles[@]}; do
+		rm $tmp >/dev/null 2>&1
+	done
+	if [[ $remove -eq 1 ]]; then
+        	rm -rf data/rdf2hdt_output 
+	fi
+
+	kill -- -$$ >/dev/null 2>&1
+	popd >/dev/null 2>&1
+}
+
+# Forced termination cleanup
+trap cleanup SIGINT
+
+function showhelp {
+        echo
+        echo "Usage: $0 [OPTIONS] FILE..."
+	echo "Run rdf2hdt with given FILEs and save performance statistics."
+        echo
+        echo "  -h, --help	display the help and exit"
+        echo
+        echo "  -p,		run for all FILEs in parallel"
+        echo
+	echo "  -r, --remove	remove output hdt files after each rdf2hdt run"
+	echo
+}
+
+
+# Parse command line
+while [[ $# -gt 0 ]]; do
+
+key="$1"
+
+case $key in
+        -h|--help)      showhelp
+                        exit 0
+                        ;;
+        -p|--parallel)  parallel=1
+                        shift
+                        ;;
+	-r|--remove)	remove=1
+			shift
+			;;
+	*)		if ! [ -f $key ]; then
+				echo "ERROR: File '"$key"' does not exist."
+				exit 0
+			fi
+			rdf_files+=($key)
+			shift
+			;;
+esac
+
+done
+
+# Create result directories
+mkdir -p data/rdf2hdt_stats
+mkdir -p data/rdf2hdt_output
+
+
+i=-1
+for f in ${rdf_files[@]}; do
+	i=$((i+1))
+	output=data/rdf2hdt_output/$(basename "${f%.*}".hdt)
+	echo "Running: rdf2hdt "$f" "$output
+	if [[ parallel -eq 0 ]]; then
+		log[$i]=$(\time -v ../tools/rdf2hdt $f $output  2>&1)
+	else
+		tempout=($(mktemp -p .))
+		tempfiles+=($tempout)
+		(\time -v ../tools/rdf2hdt $f $output) 2> "${tempout}" &
+	fi
+	pid[$i]=$!
+done
+
+# If parallel, wait for background processes
+if [[ $parallel -eq 1 ]]; then
+	max=$(( ${#rdf_files[@]} - 1 ))
+	for i in $(seq 0 $max);
+        do
+                echo "Waiting for rdf2hdt upon file ${rdf_files[$i]} (PID ${pid[$i]}) to finish."
+                wait ${pid[i]}
+
+		if [[ remove -eq 1 ]]; then
+			f=${rdf_files[$i]}
+			output=data/rdf2hdt_output/$(basename "${f%.*}".hdt)
+			echo $output
+			rm $output
+		fi
+		logdir=data/rdf2hdt_stats
+		./parse_time_log.sh -f ${tempfiles[$i]} -o $logdir
+		rm ${tempfiles[$i]}  >/dev/null 2>&1
+        done
+fi
+
+echo ${log[@]}
+
+if [[ $remove -eq 1 ]]; then
+	rm -rf data/rdf2hdt_output >/dev/null 2>&1
+fi
+
+# Go to run directory
+popd >/dev/null 2>&1
