@@ -7,15 +7,16 @@ pushd "$(dirname "$0")" >/dev/null
 rdf_files=()
 parallel=0
 remove=0
-tempfiles=()
+logfiles=()
+datadir="./data"
 
 function cleanup {
 	trap - SIGTERM
-	for tmp in ${tempfiles[@]}; do
-		rm $tmp >/dev/null 2>&1
-	done
+	#for tmp in ${tempfiles[@]}; do
+		#rm $tmp >/dev/null 2>&1
+	#done
 	if [[ $remove -eq 1 ]]; then
-        	rm -rf data/rdf2hdt_output 
+        	rm -rf $datadir/rdf2hdt_output
 	fi
 
 	kill -- -$$ >/dev/null 2>&1
@@ -30,11 +31,13 @@ function showhelp {
         echo "Usage: $0 [OPTIONS] FILE..."
 	echo "Run rdf2hdt with given FILEs and save performance statistics."
         echo
-        echo "  -h, --help	display the help and exit"
+	echo "	-d, --datadir DIR	specify a directory DIR where the output will be saved"
+	echo
+        echo "  -h, --help		display the help and exit"
         echo
-        echo "  -p,		run for all FILEs in parallel"
+        echo "  -p,			run for all FILEs in parallel"
         echo
-	echo "  -r, --remove	remove output hdt files after each rdf2hdt run"
+	echo "  -r, --remove		remove output hdt files after each rdf2hdt run"
 	echo
 }
 
@@ -45,6 +48,14 @@ while [[ $# -gt 0 ]]; do
 key="$1"
 
 case $key in
+	-d|--datadir)	datadir=$2
+			if ! [ -d $datadir ]; then
+				echo "ERROR: given data directory ('"$datadir"') does not exist"
+				exit 0
+			fi
+			shift
+			shift
+			;;
         -h|--help)      showhelp
                         exit 0
                         ;;
@@ -66,23 +77,25 @@ esac
 done
 
 # Create result directories
-mkdir -p data/rdf2hdt_stats
-mkdir -p data/rdf2hdt_output
+mkdir -p $datadir/rdf2hdt_logs
+mkdir -p $datadir/rdf2hdt_output
 
 
 i=-1
 for f in ${rdf_files[@]}; do
 	i=$((i+1))
-	output=data/rdf2hdt_output/$(basename "${f%.*}".hdt)
-	echo "Running: rdf2hdt "$f" "$output
+	output=$datadir/rdf2hdt_output/$(basename "${f%.*}".hdt)
+	echo -n "- Running: rdf2hdt "$f" "$output
 	if [[ parallel -eq 0 ]]; then
 		log[$i]=$(\time -v ../tools/rdf2hdt $f $output  2>&1)
+		echo
 	else
-		tempout=($(mktemp -p .))
-		tempfiles+=($tempout)
-		(\time -v ../tools/rdf2hdt $f $output) 2> "${tempout}" &
+		log=$datadir/rdf2hdt_logs/$(basename "${f%.*}".log)
+		logfiles+=($log)
+		(\time -v ../tools/rdf2hdt $f $output) 2> "${log}" &
+	        pid[$i]=$!
+        	echo " with pid: "${pid[$i]}
 	fi
-	pid[$i]=$!
 done
 
 # If parallel, wait for background processes
@@ -95,21 +108,24 @@ if [[ $parallel -eq 1 ]]; then
 
 		if [[ remove -eq 1 ]]; then
 			f=${rdf_files[$i]}
-			output=data/rdf2hdt_output/$(basename "${f%.*}".hdt)
-			echo $output
+			output=$datadir/rdf2hdt_output/$(basename "${f%.*}".hdt)
 			rm $output
 		fi
-		logdir=data/rdf2hdt_stats
-		./parse_time_log.sh -f ${tempfiles[$i]} -o $logdir
-		rm ${tempfiles[$i]}  >/dev/null 2>&1
-        done
+	done
 fi
 
-echo ${log[@]}
+#Parse log files
+logdir=$datadir/rdf2hdt_logs
+csvfilename="rdf2hdt.log"
+./parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
 
 if [[ $remove -eq 1 ]]; then
-	rm -rf data/rdf2hdt_output >/dev/null 2>&1
+	rm -rf $datadir/rdf2hdt_output >/dev/null 2>&1
 fi
 
 # Go to run directory
 popd >/dev/null 2>&1
+
+echo
+echo "-- rdf2hdt benchmarking successfully finished --"
+echo

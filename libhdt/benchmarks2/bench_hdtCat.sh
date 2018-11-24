@@ -148,6 +148,7 @@ if  [[ parallel -eq 0 ]]; then
         for iter in $(seq 1 $max); do
                 # Create log files
                 log=$datadir/hdtCat_logs/out.s.$iter.log
+		logfiles+=($log)
 
 		# Define hdtCat arguments
 		right_file=${hdt_files[$iter]}
@@ -158,9 +159,6 @@ if  [[ parallel -eq 0 ]]; then
 
 		# Set next left input file
 		left_file=$output_file
-
-		# Parse log
-		#./parse_time_logs -f $datadir/hdtCat_logs/${log[$i]} -o $datadir/hdtCat_logs
         done
 	echo
 	echo "--All sequential hdtCat runs finished successfully--"
@@ -178,6 +176,10 @@ else
 	hdtCatRecursive ${hdt_files[@]}
 fi
 
+# Parse log files
+logdir=$datadir/hdtCat_logs
+csvfilename="hdtCat.log"
+./parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
 
 # Go to run directory
 popd >/dev/null
