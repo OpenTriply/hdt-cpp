@@ -75,6 +75,10 @@ case $key in
 esac
 
 done
+if [ ${#rdf_files[@]} -eq 0 ]; then
+        echo "No RDF files given as argument. Cannot run benchmark"
+        exit 1;
+fi
 
 # Create result directories
 mkdir -p $datadir/rdf2hdt_logs
@@ -86,12 +90,12 @@ for f in ${rdf_files[@]}; do
 	i=$((i+1))
 	output=$datadir/rdf2hdt_output/$(basename "${f%.*}".hdt)
 	echo -n "- Running: rdf2hdt "$f" "$output
+	log=$datadir/rdf2hdt_logs/$(basename "${f%.*}".log)
+	logfiles+=($log)
 	if [[ parallel -eq 0 ]]; then
-		log[$i]=$(\time -v ../tools/rdf2hdt $f $output  2>&1)
+		(\time -v ../tools/rdf2hdt $f $output) 2> "${log}" 
 		echo
 	else
-		log=$datadir/rdf2hdt_logs/$(basename "${f%.*}".log)
-		logfiles+=($log)
 		(\time -v ../tools/rdf2hdt $f $output) 2> "${log}" &
 	        pid[$i]=$!
         	echo " with pid: "${pid[$i]}
