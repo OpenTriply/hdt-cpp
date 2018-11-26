@@ -46,7 +46,10 @@ case $key in
 			;;
 esac
 done
-
+if [ ${#files[@]} -eq 0 ]; then
+	echo "No files given as argument. Cannot create log file"
+	exit 1;
+fi
 if [ -n "${tempname}" ]; then
 	name=$outputdir"/"$tempname
 fi
