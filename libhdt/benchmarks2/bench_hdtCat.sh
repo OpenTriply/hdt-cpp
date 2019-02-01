@@ -83,7 +83,7 @@ hdtCatRecursive()
 		shift
 	done
 
-	# Wait for all hdtCat calls in this level to be finished
+    # Wait for all hdtCat calls in this level to be finished
     echo "- Waiting for all hdtCat processes to finish. (PID list: "${pid[@]}")" > ${output}
     while true; do
 
@@ -217,7 +217,7 @@ fi
 # Parse log files
 logdir=$datadir/hdtCat_logs
 
-if [[ "$output" = "/dev/null/" ]]; then
+if [[ "$output" = "/dev/null" ]]; then
     "`realpath $(dirname "$0")`"/parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename -q
 else
     "`realpath $(dirname "$0")`"/parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
