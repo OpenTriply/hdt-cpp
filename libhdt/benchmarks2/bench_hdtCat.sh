@@ -1,31 +1,29 @@
 #!/usr/bin/env bash
 
-# Go to script directory
-pushd "$(dirname "$0")" >/dev/null
-
-# Initialize globals
-hdt_files=()
-parallel=0
-logfiles=()
-datadir="./data"
+# Defaults and globals
 count=0
+datadir="`realpath $(dirname "$0")`"/data
+hdt_files=()
+logfiles=()
+parallel=0
+output=/dev/stdout
 step=1
+csvfilename=hdtCat.$(date +"%d.%m.%Y-%H.%M.%S").csv
 
 hdtCatRecursive()
 {
-
 	# Termination condition
 	if [[ $# -eq 1 ]]; then
 		step=1
-		echo "--All parallel hdtCat runs successfully finished--"
-		echo
+		echo "--All parallel hdtCat runs successfully finished--" > ${output}
+		echo > ${output}
 		return
 	fi
 
-	echo "Recursion level: "$step
+	echo "- Recursion level: "$step > ${output}
 
+    # Total hdtCat inputs in this step
 	max=$#
-	log_files=()
 
 	# Next call argument list
 	next=()
@@ -37,28 +35,48 @@ hdtCatRecursive()
 		shift
 	fi
 
-	# Run hdtCat on every two files
-        for iter in $(seq 1 $((max/2))); do
+    pid=()
+    time_pid=()
+    el=0
 
+	# Run hdtCat on every two files
+    for iter in $(seq 1 $((max/2))); do
 		# Create log files
 		log=$datadir/hdtCat_logs/out.$step.$iter.log
-                logfiles+=($log)
+        logfiles+=($log)
 
 		# Define hdtCat arguments
 		left_file=$1
-                right_file=$2
+        right_file=$2
 		output_file=$datadir/hdtCat_output/out.$step.$iter.hdt
 
 		# Add output file to the next call argument list
 		next+=("$output_file")
 
 		# Execute hdtCat in the background
-		echo -n "- Running hdtCat "$left_file" "$right_file" "$output_file
-                (\time -v ../tools/hdtCat $left_file $right_file $output_file >/dev/null) 2> "${log}" &
+		echo  -n "- Running hdtCat "$left_file" "$right_file" "$output_file > ${output}
+        (\time -v "$(dirname "$0")"/../tools/hdtCat $left_file $right_file $output_file >/dev/null) 2> "${log}" &
 
 		# Save pid
-		pid[$iter]=$!
-                echo " with pid: "${pid[$iter]}
+        time_pid[$el]=$!
+        str="$(pstree -p ${time_pid[$el]}  | grep '([0-9]\+)' | grep -o '[0-9]\+')"
+        ptree=( $str )
+
+        if [[ ${#ptree[@]} -eq 0 || ${#ptree[@]} -eq 1 ]]; then
+            echo "...Done" > ${output}
+            unset 'time_pid[${#time_pid[@]}-1]'
+            echo "- This hdtCat process finished too fast to wait" > ${output}
+        else
+            for p in ${ptree[@]}; do
+                if [[ ${time_pid[$el]} -ne $p ]]; then
+                    pid[$el]=$p
+                fi
+            done
+            echo "with PID: "${pid[$el]} > ${output}
+
+           let el=$el+1
+
+        fi
 
 		# Move to next input pair of input files
 		shift
@@ -66,18 +84,30 @@ hdtCatRecursive()
 	done
 
 	# Wait for all hdtCat calls in this level to be finished
-	for i in $(seq 1 $((max/2)));
-        do
-                echo "Waiting for hdtCat (PID ${pid[$i]}) to finish."
-                wait ${pid[i]}
+    echo "- Waiting for all hdtCat processes to finish. (PID list: "${pid[@]}")" > ${output}
+    while true; do
 
-		#TODO: parse logs
-                #./parse_time_log.sh -f $datadir/hdtCat_logs/${logfiles[$i]} -o $datadir/hdtCat_logs
+        i=0
+        wait=0
+
+        while [ $i -le $((${#pid[@]}-1)) ]; do
+            if kill -0 ${pid[$i]} > /dev/null 2>&1; then
+                wait=1
+                break
+            fi
+            let i=$i+1
         done
 
-	echo
-	echo "--hdtCat runs finished for step: "$step"--"
-	echo
+        if [[ wait -eq 1 ]]; then
+            sleep 1
+        else
+            break
+        fi
+    done
+
+	echo > ${output}
+	echo "--hdtCat runs finished for step: "$step"--" > ${output}
+	echo > ${output}
 
 	# Recursion step
 	((step+=1))
@@ -88,35 +118,41 @@ hdtCatRecursive()
 showhelp()
 {
         echo
-        echo "Usage: $0 [OPTIONS] FILE..."
+        echo "Usage: "$(basename $0)" [OPTIONS] FILE..."
         echo "Run hdtCat with given FILEs iteratively and save performance statistics."
         echo
-        echo "  -d, --datadir DIR       specify a directory DIR where the output will be saved"
+        echo "  -d, --datadir DIR       DIR directory where the output logs will be saved"
         echo
         echo "  -h, --help              display the help and exit"
         echo
-        echo "  -p,                     run hdtCat in parallel and not iteratively"
+        echo "  -p,                     run hdtCat processes in parallel and not sequantially"
+        echo
+        echo "  -q, --quiet             quiet/suppress stdout"
         echo
 }
 
 # Parse command line
 while [[ $# -gt 0 ]]; do
-
 key="$1"
-
 case $key in
-        -d|--datadir)   datadir=$2
+        -d|--datadir)   datadir=$(realpath $2)
                         if ! [ -d $datadir ]; then
-                                echo "ERROR: given data directory ('"$datadir"') does not exist"
+                                echo "ERROR: output directory ('`echo $(realpath "$datadir")`') does not exist"
                                 exit 0
                         fi
                         shift
                         shift
                         ;;
+
         -h|--help)      showhelp
                         exit 0
                         ;;
+
         -p|--parallel)  parallel=1
+                        shift
+                        ;;
+
+        -q|--quiet)     output=/dev/null
                         shift
                         ;;
         *)              if ! [ -f $key ]; then
@@ -124,7 +160,7 @@ case $key in
                                 exit 0
                         fi
                         hdt_files+=($key)
-			((count+=1))
+			            ((count+=1))
                         shift
                         ;;
 esac
@@ -141,45 +177,48 @@ mkdir -p $datadir/hdtCat_logs
 
 # Apply hdtCat sequentially
 if  [[ parallel -eq 0 ]]; then
-	echo "hdtCat will run sequentially"
-	max=$((${#hdt_files[@]}-1))
+	echo "hdtCat will run sequentially" > ${output}
+    echo > ${output}
+
+    max=$((${#hdt_files[@]}-1))
 	left_file=${hdt_files[0]}
 
-        for iter in $(seq 1 $max); do
-                # Create log files
-                log=$datadir/hdtCat_logs/out.s.$iter.log
-		logfiles+=($log)
+    for iter in $(seq 1 $max); do
+        # Create log files
+        log=$datadir/hdtCat_logs/out.$iter.log
+	    logfiles+=($log)
 
 		# Define hdtCat arguments
 		right_file=${hdt_files[$iter]}
-                output_file=$datadir/hdtCat_output/out$iter.hdt
+        output_file=$datadir/hdtCat_output/out.$iter.hdt
 
-		echo "- Running hdtCat "$left_file" "$right_file" "$output_file
-                (\time -v ../tools/hdtCat $left_file $right_file $output_file >/dev/null) 2> "${log}"
+		echo "- Running hdtCat "$left_file" "$right_file" "$output_file > ${output}
+        (\time -v "$(dirname "$0")"/../tools/hdtCat $left_file $right_file $output_file >/dev/null) 2> "${log}"
 
 		# Set next left input file
 		left_file=$output_file
-        done
-	echo
-	echo "--All sequential hdtCat runs finished successfully--"
-	echo
+    done
+	echo > ${output}
+	echo "--All sequential hdtCat runs finished successfully--" > ${output}
+	echo > ${output}
+
 # Apply hdtCat in parallel
 else
 	total_steps=0
-	temp=${#hdt_files[@]}
-	while [[ temp -gt 0 ]]; do
-		((total_steps+=1))
-		((temp/=2))
+    for (( y=${#hdt_files[@]}-1 ; $y > 0; y >>= 1 )); do
+        let total_steps=$total_steps+1
 	done
 
-	echo "hdtCat will run in parallel in "$total_steps" levels."
+	echo "hdtCat will run in parallel in "$total_steps" levels." > ${output}
+    echo > ${output}
 	hdtCatRecursive ${hdt_files[@]}
 fi
 
 # Parse log files
 logdir=$datadir/hdtCat_logs
-csvfilename="hdtCat.log"
-./parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
 
-# Go to run directory
-popd >/dev/null
+if [[ "$output" = "/dev/null/" ]]; then
+    "`realpath $(dirname "$0")`"/parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename -q
+else
+    "`realpath $(dirname "$0")`"/parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
+fi
