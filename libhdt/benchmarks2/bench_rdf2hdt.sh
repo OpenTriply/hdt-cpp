@@ -1,44 +1,40 @@
 #!/usr/bin/env bash
 
-# Go to script directory
-pushd "$(dirname "$0")" >/dev/null
-
 # Initialize globals
 rdf_files=()
 parallel=0
 remove=0
 logfiles=()
-datadir="./data"
+datadir="`realpath $(dirname "$0")`"/data
 
-function cleanup {
-	trap - SIGTERM
-	#for tmp in ${tempfiles[@]}; do
-		#rm $tmp >/dev/null 2>&1
-	#done
-	if [[ $remove -eq 1 ]]; then
-        	rm -rf $datadir/rdf2hdt_output
-	fi
+#function cleanup {
+#	trap - SIGTERM
+#	if [[ $remove -eq 1 ]]; then
+#        	rm -rf $datadir/rdf2hdt_output
+#	fi
 
-	kill -- -$$ >/dev/null 2>&1
-	popd >/dev/null 2>&1
-}
+#	kill -- -$$ >/dev/null 2>&1
+#	popd >/dev/null 2>&1
+#}
 
 # Forced termination cleanup
-trap cleanup SIGINT
+#trap cleanup SIGINT
 
 function showhelp {
-        echo
-        echo "Usage: $0 [OPTIONS] FILE..."
-	echo "Run rdf2hdt with given FILEs and save performance statistics."
-        echo
-	echo "	-d, --datadir DIR	specify a directory DIR where the output will be saved"
-	echo
-        echo "  -h, --help		display the help and exit"
-        echo
-        echo "  -p,			run for all FILEs in parallel"
-        echo
-	echo "  -r, --remove		remove output hdt files after each rdf2hdt run"
-	echo
+    echo
+    echo "Usage: "$(basename $0)" [OPTIONS] FILE..."
+    echo "Run rdf2hdt with given FILEs and save performance statistics."
+    echo
+    echo "  -d, --datadir DIR   DIR directory  where the output will be saved"
+    echo
+    echo "  -h, --help          display the help and exit"
+    echo
+    echo "  -p,                 run for all FILEs in parallel"
+    echo
+    echo "  -q, --quiet         quiet/suppress stdout"
+    echo
+    echo "  -r, --remove        remove output hdt files after each rdf2hdt run"
+    echo
 }
 
 
@@ -48,8 +44,8 @@ while [[ $# -gt 0 ]]; do
 key="$1"
 
 case $key in
-	-d|--datadir)	datadir=$2
-			if ! [ -d $datadir ]; then
+    -d|--datadir)   datadir=$2
+                    if ! [ -d $datadir ]; then
 				echo "ERROR: given data directory ('"$datadir"') does not exist"
 				exit 0
 			fi
@@ -92,7 +88,7 @@ for f in ${rdf_files[@]}; do
 	echo -n "- Running: rdf2hdt "$f" "$output
 	log=$datadir/rdf2hdt_logs/$(basename "${f%.*}".log)
 	logfiles+=($log)
-	if [[ parallel -eq 0 ]]; then
+	if [[ $parallel -eq 0 ]]; then
 		(\time -v ../tools/rdf2hdt $f $output) 2> "${log}" 
 		echo
 	else
