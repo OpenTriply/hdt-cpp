@@ -1,24 +1,14 @@
 #!/usr/bin/env bash
 
-# Initialize globals
-rdf_files=()
+set -e
+
+# Defaults and globals
+datadir="`realpath $(dirname "$0")`"/data
+logfiles=()
+outputstream=/dev/stdout
 parallel=0
 remove=0
-logfiles=()
-datadir="`realpath $(dirname "$0")`"/data
-
-#function cleanup {
-#	trap - SIGTERM
-#	if [[ $remove -eq 1 ]]; then
-#        	rm -rf $datadir/rdf2hdt_output
-#	fi
-
-#	kill -- -$$ >/dev/null 2>&1
-#	popd >/dev/null 2>&1
-#}
-
-# Forced termination cleanup
-#trap cleanup SIGINT
+rdf_files=()
 
 function showhelp {
     echo
@@ -41,38 +31,41 @@ function showhelp {
 # Parse command line
 while [[ $# -gt 0 ]]; do
 
-key="$1"
+    key="$1"
 
-case $key in
-    -d|--datadir)   datadir=$2
-                    if ! [ -d $datadir ]; then
-				echo "ERROR: given data directory ('"$datadir"') does not exist"
-				exit 0
-			fi
-			shift
-			shift
-			;;
+    case $key in
+        -d|--datadir)   datadir=$(realpath $2)
+                        if ! [ -d $datadir ]; then
+                            echo "ERROR: given data directory ('"$datadir"') does not exist"
+                            exit 0
+                        fi
+                        shift
+                        shift
+                        ;;
         -h|--help)      showhelp
                         exit 0
                         ;;
         -p|--parallel)  parallel=1
                         shift
                         ;;
-	-r|--remove)	remove=1
-			shift
-			;;
-	*)		if ! [ -f $key ]; then
-				echo "ERROR: File '"$key"' does not exist."
-				exit 0
-			fi
-			rdf_files+=($key)
-			shift
-			;;
-esac
-
+        -q|--quiet)     outputstream=/dev/null
+                        shift
+                        ;;
+        -r|--remove)	remove=1
+                        shift
+                        ;;
+        *)	        	if ! [ -f $key ]; then
+                            echo "ERROR: File '"$key"' does not exist."
+                            exit 0
+                        fi
+                        rdf_files+=($key)
+                        shift
+                        ;;
+    esac
 done
+
 if [ ${#rdf_files[@]} -eq 0 ]; then
-        echo "No RDF files given as argument. Cannot run benchmark"
+        echo "ERROR: No RDF files given as argument. Cannot run benchmark."
         exit 1;
 fi
 
@@ -81,43 +74,74 @@ mkdir -p $datadir/rdf2hdt_logs
 mkdir -p $datadir/rdf2hdt_output
 
 
-i=-1
+pid=()
+time_pid=()
+i=0
+
 for f in ${rdf_files[@]}; do
-	i=$((i+1))
 	output=$datadir/rdf2hdt_output/$(basename "${f%.*}".hdt)
-	echo -n "- Running: rdf2hdt "$f" "$output
-	log=$datadir/rdf2hdt_logs/$(basename "${f%.*}".log)
+	echo -n "- Running: rdf2hdt "$f" "$output > ${outputstream}
+	log=$datadir/rdf2hdt_logs/$(basename "${f%.*}".$i.log)
 	logfiles+=($log)
 	if [[ $parallel -eq 0 ]]; then
-		(\time -v ../tools/rdf2hdt $f $output) 2> "${log}" 
-		echo
+		(\time -v "$(dirname "$0")"/../tools/rdf2hdt $f $output) 2> "${log}"
+		echo > ${outputstream}
 	else
-		(\time -v ../tools/rdf2hdt $f $output) 2> "${log}" &
-	        pid[$i]=$!
-        	echo " with pid: "${pid[$i]}
+		(\time -v "$(dirname "$0")"/../tools/rdf2hdt $f $output) 2> "${log}" &
+	    time_pid[$i]=$!
+	    str="$(pstree -p ${time_pid[$i]}  | grep '([0-9]\+)' | grep -o '[0-9]\+')"
+        ptree=( $str )
+
+        if [[ ${#ptree[@]} -eq 0 || ${#ptree[@]} -eq 1 ]]; then
+            echo "...Done" > ${outputstream}
+            unset 'time_pid[${#time_pid[@]}-1]'
+            echo "- This rdf2hdt process finished too fast to wait" > ${outputstream}
+        else
+            for p in ${ptree[@]}; do
+                if [[ ${time_pid[$i]} -ne $p ]]; then
+                    pid[$i]=$p
+                fi
+            done
+            echo "with PID: "${pid[$i]} > ${outputstream}
+
+            let i=$i+1
+        fi
+
+        echo " with pid: "${pid[$i]} > ${outputstream}
 	fi
 done
 
-# If parallel, wait for background processes
-if [[ $parallel -eq 1 ]]; then
-	max=$(( ${#rdf_files[@]} - 1 ))
-	for i in $(seq 0 $max);
-        do
-                echo "Waiting for rdf2hdt upon file ${rdf_files[$i]} (PID ${pid[$i]}) to finish."
-                wait ${pid[i]}
+# Wait for all hdtCat calls in this level to be finished
+echo "- Waiting for all rdf2hdt processes to finish. (PID list: "${pid[@]}")" > ${outputstream}
+while [ $parallel -eq 1 ]; do
+    i=0
+    wait=0
 
-		if [[ remove -eq 1 ]]; then
-			f=${rdf_files[$i]}
-			output=$datadir/rdf2hdt_output/$(basename "${f%.*}".hdt)
-			rm $output
-		fi
-	done
-fi
+    while [ $i -le $((${#pid[@]}-1)) ]; do
+        if kill -0 ${pid[$i]} > /dev/null 2>&1; then
+            wait=1
+            break
+        fi
+        let i=$i+1
+    done
+
+    if [[ wait -eq 1 ]]; then
+        sleep 1
+    else
+        break
+    fi
+done
+
 
 #Parse log files
 logdir=$datadir/rdf2hdt_logs
-csvfilename="rdf2hdt.log"
-./parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
+csvfilename=rdf2hdt.$(date +"%d.%m.%Y-%H.%M.%S").csv
+
+if [[ "$output" = "/dev/null" ]]; then
+    "`realpath $(dirname "$0")`"/parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename -q
+else
+    "`realpath $(dirname "$0")`"/parse_time_log.sh ${logfiles[@]} -o $logdir -n $csvfilename
+fi
 
 if [[ $remove -eq 1 ]]; then
 	rm -rf $datadir/rdf2hdt_output >/dev/null 2>&1
@@ -126,6 +150,6 @@ fi
 # Go to run directory
 popd >/dev/null 2>&1
 
-echo
-echo "-- rdf2hdt benchmarking successfully finished --"
-echo
+echo > ${outputstream}
+echo "-- rdf2hdt benchmarking successfully finished --" > ${outputstream}
+echo > ${outputstream}

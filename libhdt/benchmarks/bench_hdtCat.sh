@@ -118,13 +118,13 @@ showhelp()
 {
     echo
     echo "Usage: "$(basename $0)" [OPTIONS] FILE..."
-    echo "Run hdtCat with given FILEs iteratively and save performance statistics."
+    echo "Run hdtCat with given FILEs and save performance statistics."
     echo
     echo "  -d, --datadir DIR       DIR directory where the output logs will be saved"
     echo
     echo "  -h, --help              display the help and exit"
     echo
-    echo "  -p,                     run hdtCat processes in parallel and not sequantially"
+    echo "  -p,                     run hdtCat processes in parallel and not sequentially"
     echo
     echo "  -q, --quiet             quiet/suppress stdout"
     echo
@@ -176,7 +176,7 @@ mkdir -p $datadir/hdtCat_logs
 
 # Apply hdtCat sequentially
 if  [[ parallel -eq 0 ]]; then
-    echo "hdtCat will run sequentially" > ${output}
+    echo "- hdtCat will run sequentially" > ${output}
     echo > ${output}
 
     max=$((${#hdt_files[@]}-1))
