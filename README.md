@@ -69,6 +69,17 @@ Sometimes, the above instructions do not result in a working HDT
 installation.  This section enumerates common issues and their
 workaround.
 
+#### Compilation issues using Kyoto Cabinet
+
+The support for Kyoto Cabinet was never finished and is currently suspended. It is for the time being not possible to compile HDT with KyotoCabinet.
+
+Common error: 
+  
+    In file included from src/dictionary/KyotoDictionary.cpp:38:0:
+    src/dictionary/KyotoDictionary.hpp:108:18: error: conflicting return type specified for 'virtual unsigned int hdt::KyotoDictionary::getMapping()'
+     unsigned int getMapping();
+                  ^
+
 #### Package requirements (serd-0 >= 0.28.0) were not met
 When getting 
 
